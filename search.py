@@ -1,9 +1,9 @@
 import re
 import io
-import csv
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pandas as pd
 from playwright.sync_api import sync_playwright
 import pytesseract
 from PIL import Image
@@ -13,171 +13,239 @@ from PIL import Image
 # CONFIGURATION
 # ============================================================
 
-# Path to Tesseract on Windows
 pytesseract.pytesseract.tesseract_cmd = (
     r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 )
 
 URL = "https://www.judiciary.karnataka.gov.in/rep_judgment.php"
 
-OUTPUT_FILE = "bbmp_judgments.csv"
+# Used to build output filenames: BBMP_Case1.xlsx, BBMP_Case2.xlsx, ...
+SEARCH_NAME = "BBMP"
+
+# Exact sheet order requested, mapped to their div id.
+# "H" (Case Information) is handled separately below since, unlike
+# every other section, its content div has no id and is visible by
+# default rather than hidden behind divopen().
+SECTION_ORDER = [
+    ("H15", "Prayer Information"),
+    ("H1", "Party Information"),
+    ("H12", "Caveator/Caveatee Information"),
+    ("H2", "Trial/Appellate Information"),
+    ("H17", "Supreme Court Appellate Information"),
+    ("H3", "Daily Orders Information"),
+    ("H4", "Linked Cases"),
+    ("H5", "Judgment Information"),
+    ("H6", "Certified Copy Information (Final Order)"),
+    ("H13", "Certified Copy Information (Interim Order)"),
+    ("H7", "Index Sheet Information"),
+    ("H8", "Scrutiny Information"),
+    ("H9", "Interlocutory Applications (IA) Information"),
+    ("H10", "Documents Information"),
+    ("H11", "Postal Information"),
+    ("H14", "Judicial Deposit"),
+    ("H18", "Fees Information"),
+]
+
+NO_DATA_MARKERS = {
+    "", "record_not_found", "no data found", "please wait...",
+}
+
+DETAILS_COLUMN = "Details"
 
 
 # ============================================================
-# CAPTCHA FUNCTION
+# CAPTCHA
 # ============================================================
 
 def solve_captcha(page):
-    """
-    Gets a screenshot of the CAPTCHA image and returns
-    only the digits recognized by OCR.
-    """
-
     captcha_img = page.locator("#captcha")
     captcha_img.wait_for(state="visible")
 
     image_bytes = captcha_img.screenshot()
     image = Image.open(io.BytesIO(image_bytes))
 
-    custom_config = (
-        r"--psm 8 "
-        r"-c tessedit_char_whitelist=0123456789"
-    )
-
-    captcha_text = pytesseract.image_to_string(
-        image,
-        config=custom_config
-    )
-
-    # Keep digits only
-    captcha_text = re.sub(r"\D", "", captcha_text)
-
-    return captcha_text
+    custom_config = r"--psm 8 -c tessedit_char_whitelist=0123456789"
+    captcha_text = pytesseract.image_to_string(image, config=custom_config)
+    return re.sub(r"\D", "", captcha_text)
 
 
 # ============================================================
-# FIND THE ACTUAL JUDGMENTS TABLE
+# FIND THE JUDGMENTS TABLE
 # ============================================================
 
 def find_judgments_table(results):
-    """
-    Finds the table containing the actual judgment data.
-
-    We do NOT simply use .first because the results popup may
-    contain other layout tables.
-
-    The correct table is identified using its expected headers.
-    """
-
     tables = results.locator("table")
 
-    print(f"\nFound {tables.count()} table(s) inside results.")
-
     for i in range(tables.count()):
-
         table = tables.nth(i)
-
         headers = [
-            header.strip().replace("\n", " ")
-            for header in table.locator("thead th").all_inner_texts()
+            h.strip().replace("\n", " ")
+            for h in table.locator("thead th").all_inner_texts()
         ]
-
-        print(f"Table {i} headers: {headers}")
-
-        # Identify the actual judgment table
-        if (
-            "Sl. No." in headers
-            and "Case Type" in headers
-            and "Case No" in headers
-        ):
-            print(f"\nActual judgments table found: Table {i}")
+        if "Sl. No." in headers and "Case Type" in headers and "Case No" in headers:
             return table
 
     return None
 
 
 # ============================================================
-# EXPORT TABLE TO CSV
+# CLEAN A SECTION'S TEXT
 # ============================================================
 
-def export_table_to_csv(table, filename):
+def clean_text(text):
+    """Collapse whitespace, normalize 'no data' variants to empty string."""
+    if text is None:
+        return ""
+
+    normalized = " ".join(text.split())
+
+    if normalized.strip().lower() in NO_DATA_MARKERS:
+        return ""
+
+    return normalized
+
+
+# ============================================================
+# EXTRACT "CASE INFORMATION" (div id="H" has no id -- special-cased)
+# ============================================================
+
+def extract_case_information_text(case_page):
     """
-    Exports ONLY:
-        - table column headers
-        - table body rows
-
-    It does NOT export:
-        - popup title
-        - date period text
-        - Show 10/25/50/All
-        - Search box
-        - pagination
-        - First/Previous/Next/Last
+    The Case Information block is visible by default (no divopen()
+    click needed) and its wrapping <div> has no id, unlike every
+    other section. We locate it via the "Case Information" link's
+    nav ancestor, then take that nav's immediate following sibling.
     """
 
-    # --------------------------------------------------------
-    # GET COLUMN HEADERS
-    # --------------------------------------------------------
+    try:
+        link = case_page.locator(
+            "xpath=//a[normalize-space(text())='Case Information']"
+        ).first
 
-    headers = [
-        header.strip().replace("\n", " ")
-        for header in table.locator("thead th").all_inner_texts()
-    ]
+        if link.count() == 0:
+            return ""
 
-    print("\nCSV COLUMN HEADERS:")
-    print(headers)
+        container = link.locator(
+            "xpath=ancestor::nav[1]/following-sibling::div[1]"
+        )
 
-    # --------------------------------------------------------
-    # GET TABLE ROWS
-    # --------------------------------------------------------
+        if container.count() == 0:
+            return ""
 
-    rows = table.locator("tbody tr")
+        raw_text = container.inner_text().strip()
+        return clean_text(raw_text)
 
-    print(f"\nFound {rows.count()} table rows.")
+    except Exception as e:
+        print(f"  Could not extract Case Information: {e}")
+        return ""
 
-    # --------------------------------------------------------
-    # WRITE CSV
-    # --------------------------------------------------------
 
-    with open(
-        filename,
-        "w",
-        newline="",
-        encoding="utf-8-sig"
-    ) as file:
+# ============================================================
+# EXTRACT ONE CASE'S SECTIONS (all the divopen()-hidden ones)
+# ============================================================
 
-        writer = csv.writer(file)
+def extract_case_sections(case_page):
+    """
+    Returns a dict: { sheet_name: extracted_text }
+    Sections with no real data are simply absent from the dict.
+    """
 
-        # Write the table column names as CSV headers
-        writer.writerow(headers)
+    extracted = {}
 
-        rows_written = 0
+    for section_id, sheet_name in SECTION_ORDER:
 
-        # Write every actual table row
-        for i in range(rows.count()):
+        section = case_page.locator(f"#{section_id}")
 
-            cells = [
-                cell.strip().replace("\n", " ")
-                for cell in rows.nth(i).locator("td").all_inner_texts()
-            ]
+        if section.count() == 0:
+            continue
 
-            # Skip empty rows
-            if not cells:
-                continue
+        # Reveal the section via the page's own JS function
+        try:
+            case_page.evaluate(f"divopen('{section_id}')")
+        except Exception:
+            pass
 
-            # Skip rows that don't look like actual data rows
-            if len(cells) < 2:
-                continue
+        case_page.wait_for_timeout(700)
 
-            writer.writerow(cells)
-            rows_written += 1
+        # A couple of sections load via a slower AJAX call --
+        # give them one extra beat and re-read.
+        raw_text = section.inner_text().strip()
+        if raw_text.lower() in ("please wait...",):
+            case_page.wait_for_timeout(1500)
+            raw_text = section.inner_text().strip()
 
-    print("\n" + "=" * 60)
-    print(f"SUCCESS: Saved {rows_written} judgments")
-    print(f"CSV file: {filename}")
-    print("=" * 60)
+        cleaned = clean_text(raw_text)
 
-    return rows_written
+        if cleaned:
+            extracted[sheet_name] = cleaned
+
+    return extracted
+
+
+# ============================================================
+# SANITIZE SHEET NAMES
+# ============================================================
+
+def sanitize_sheet_name(name):
+    """
+    Excel sheet names cannot contain: \\ / * ? : [ ]
+    and must be 31 characters or fewer.
+    """
+    invalid_chars = ['\\', '/', '*', '?', ':', '[', ']']
+    cleaned = name
+    for ch in invalid_chars:
+        cleaned = cleaned.replace(ch, "-")
+    return cleaned[:31]
+
+
+# ============================================================
+# WRITE ONE CASE'S WORKBOOK
+# ============================================================
+
+def write_case_workbook(filename, base_row, case_info_text, sections_data):
+    """
+    Writes a single .xlsx with sheets in this exact order:
+        Summary, Case Information, Prayer Information, Party Information,
+        Caveator/Caveatee Information, Trial/Appellate Information,
+        Supreme Court Appellate Information, Daily Orders Information,
+        Linked Cases, Judgment Information,
+        Certified Copy Information (Final Order),
+        Certified Copy Information (Interim Order),
+        Index Sheet Information, Scrutiny Information,
+        Interlocutory Applications (IA) Information,
+        Documents Information, Postal Information,
+        Judicial Deposit, Fees Information
+    Every sheet is created even when there's no data for it.
+    """
+
+    with pd.ExcelWriter(filename, engine="openpyxl") as writer:
+
+        # --- Sheet 1: Summary (original judgment table row) ---
+        summary_df = pd.DataFrame([base_row]) if base_row else pd.DataFrame()
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+
+        # --- Sheet 2: Case Information ---
+        if case_info_text:
+            case_info_df = pd.DataFrame([{DETAILS_COLUMN: case_info_text}])
+        else:
+            case_info_df = pd.DataFrame(columns=[DETAILS_COLUMN])
+        case_info_df.to_excel(writer, sheet_name=sanitize_sheet_name("Case Information"), index=False)
+
+        # --- Sheets 3-19: the 17 remaining sections, in exact order ---
+        for _section_id, sheet_name in SECTION_ORDER:
+
+            text = sections_data.get(sheet_name)
+
+            if text:
+                section_df = pd.DataFrame([{DETAILS_COLUMN: text}])
+            else:
+                section_df = pd.DataFrame(columns=[DETAILS_COLUMN])
+
+            section_df.to_excel(
+                writer,
+                sheet_name=sanitize_sheet_name(sheet_name),
+                index=False,
+            )
 
 
 # ============================================================
@@ -186,311 +254,187 @@ def export_table_to_csv(table, filename):
 
 with sync_playwright() as p:
 
-    # --------------------------------------------------------
-    # 1. OPEN BROWSER MAXIMIZED
-    # --------------------------------------------------------
-
-    browser = p.chromium.launch(
-        headless=False,
-        args=["--start-maximized"]
-    )
-
-    context = browser.new_context(
-        no_viewport=True
-    )
-
+    browser = p.chromium.launch(headless=False, args=["--start-maximized"])
+    context = browser.new_context(no_viewport=True)
     page = context.new_page()
 
     print("Opening Karnataka Judiciary website...")
-
-    page.goto(
-        URL,
-        wait_until="networkidle"
-    )
-
-
-    # --------------------------------------------------------
-    # 2. SELECT PRINCIPAL BENCH AT BENGALURU
-    # --------------------------------------------------------
+    page.goto(URL, wait_until="networkidle")
 
     print("Selecting Principal Bench At Bengaluru...")
-
     page.locator("#db_bench").select_option("B")
-
-    # Wait for the website's bench-selection request
     page.wait_for_timeout(2000)
 
-
-    # --------------------------------------------------------
-    # 3. ENTER BBMP AS RESPONDENT NAME ONLY
-    # --------------------------------------------------------
-
     respondent = page.locator("#respondname")
-
     respondent.wait_for(state="visible")
-
-    respondent.fill("BBMP")
-
+    respondent.fill("B.B.M.P")
     print("Respondent Name entered: BBMP")
 
-
-    # --------------------------------------------------------
-    # 4. SET DATE RANGE
-    # --------------------------------------------------------
-
     to_date = datetime.now()
-
-    # Website allows approximately 3 months
     from_date = to_date - timedelta(days=90)
-
-    from_date_text = from_date.strftime("%Y-%m-%d")
-    to_date_text = to_date.strftime("%Y-%m-%d")
-
-    page.locator("#dp1").fill(from_date_text)
-    page.locator("#dp2").fill(to_date_text)
-
-    print(
-        f"Date Range: {from_date_text} to {to_date_text}"
-    )
-
+    page.locator("#dp1").fill(from_date.strftime("%Y-%m-%d"))
+    page.locator("#dp2").fill(to_date.strftime("%Y-%m-%d"))
+    print(f"Date Range: {from_date.strftime('%Y-%m-%d')} to {to_date.strftime('%Y-%m-%d')}")
 
     # --------------------------------------------------------
-    # 5. CAPTCHA ATTEMPTS
+    # CAPTCHA ATTEMPTS
     # --------------------------------------------------------
 
     max_attempts = 5
-
     success = False
     results = None
 
     for attempt in range(1, max_attempts + 1):
 
-        print("\n" + "-" * 60)
-        print(
-            f"CAPTCHA Attempt {attempt} of {max_attempts}"
-        )
-        print("-" * 60)
+        print(f"\nCAPTCHA Attempt {attempt} of {max_attempts}")
 
         captcha_text = solve_captcha(page)
+        print(f"OCR detected CAPTCHA: '{captcha_text}'")
 
-        print(
-            f"OCR detected CAPTCHA: '{captcha_text}'"
-        )
-
-        # Continue only if exactly 6 digits were detected
         if len(captcha_text) != 6:
-
-            print(
-                "OCR did not detect exactly 6 digits."
-            )
-            print("Reloading CAPTCHA...")
-
+            print("OCR did not detect exactly 6 digits. Reloading CAPTCHA...")
             page.locator("#reload-button").click()
-
             page.wait_for_timeout(2000)
-
             continue
 
-
-        # ----------------------------------------------------
-        # ENTER CAPTCHA
-        # ----------------------------------------------------
-
         page.locator("#vercode").fill(captcha_text)
-
-        print(
-            f"Entered CAPTCHA: {captcha_text}"
-        )
-
-
-        # ----------------------------------------------------
-        # CLICK SEARCH
-        # ----------------------------------------------------
-
         print("Clicking Search...")
-
         page.locator("#generate").click()
 
-
-        # ----------------------------------------------------
-        # WAIT FOR RESULTS
-        # ----------------------------------------------------
-
         try:
-
-            results = page.locator(
-                "#dynamic-content-year"
-            )
-
-            results.wait_for(
-                state="visible",
-                timeout=10000
-            )
-
-            # Give DataTables/results JavaScript time to render
+            results = page.locator("#dynamic-content-year")
+            results.wait_for(state="visible", timeout=10000)
             page.wait_for_timeout(2000)
 
-
-            # Check whether an actual judgment table exists
             target_table = find_judgments_table(results)
 
             if target_table is not None:
-
                 success = True
-
-                print(
-                    "\nSearch successful!"
-                )
-
+                print("Search successful!")
                 break
-
             else:
-
-                print(
-                    "Results appeared, but the judgments "
-                    "table was not found."
-                )
-
-                raise Exception(
-                    "Judgments table not found"
-                )
-
+                raise Exception("Judgments table not found")
 
         except Exception as e:
-
-            print(
-                f"Search attempt failed: {e}"
-            )
-
-            # Reload CAPTCHA for next attempt
+            print(f"Search attempt failed: {e}")
             try:
-
-                page.locator(
-                    "#reload-button"
-                ).click()
-
+                page.locator("#reload-button").click()
                 page.wait_for_timeout(2000)
-
-                # Clear previous CAPTCHA
-                page.locator(
-                    "#vercode"
-                ).fill("")
-
+                page.locator("#vercode").fill("")
             except Exception:
-
-                print(
-                    "Could not reload CAPTCHA automatically."
-                )
-
+                print("Could not reload CAPTCHA automatically.")
 
     # ========================================================
-    # 6. EXPORT ONLY THE ACTUAL TABLE TO CSV
+    # LOOP OVER EVERY CASE ROW -- ONE WORKBOOK PER CASE
     # ========================================================
+
+    files_written = 0
 
     if success:
 
-        print("\nPreparing CSV export...")
-
-        # Find the actual table again
         target_table = find_judgments_table(results)
 
-        if target_table is not None:
+        # Select "All" entries so we don't miss rows past page 1
+        try:
+            print("\nSelecting All entries...")
+            page.locator('select[name="example1_length"]').select_option("-1")
+            page.wait_for_timeout(2000)
+            target_table = find_judgments_table(results)
+        except Exception as e:
+            print(f"Could not select All entries: {e}")
 
-            # Try to select "All" entries first
-            #
-            # This is optional because the exact DataTables
-            # dropdown structure may vary.
-            #
+        row_count = target_table.locator("tbody tr").count()
+        print(f"\nTotal case rows found: {row_count}")
 
-            try:
+        case_num = 0
 
-                length_selects = results.locator("select")
+        for i in range(row_count):
 
-                for i in range(length_selects.count()):
+            print("\n" + "=" * 60)
+            print(f"ROW {i + 1} of {row_count}")
+            print("=" * 60)
 
-                    select = length_selects.nth(i)
+            # Re-fetch the table + row fresh each loop, since the
+            # page can re-render after a popup closes
+            target_table = find_judgments_table(results)
+            case_row_el = target_table.locator("tbody tr").nth(i)
 
-                    options = select.locator(
-                        "option"
-                    ).all_inner_texts()
+            cells = [
+                c.strip().replace("\n", " ")
+                for c in case_row_el.locator("td").all_inner_texts()
+            ]
 
-                    if "All" in options:
+            if len(cells) < 2:
+                print("Skipping malformed row.")
+                continue
 
-                        print(
-                            "\nSelecting 'All' entries..."
-                        )
+            headers = [
+                h.strip().replace("\n", " ")
+                for h in target_table.locator("thead th").all_inner_texts()
+            ]
+            base_row = dict(zip(headers, cells))
 
-                        select.select_option(
-                            label="All"
-                        )
+            case_num += 1
+            output_filename = f"{SEARCH_NAME}_Case{case_num}.xlsx"
 
-                        page.wait_for_timeout(1500)
+            case_info_text = ""
+            sections_data = {}
 
-                        break
+            case_button = case_row_el.locator('button[onclick*="casedetails"]').first
 
-            except Exception as e:
+            if case_button.count() == 0:
+                print("No case details button in this row -- Summary sheet only.")
 
-                print(
-                    f"Could not select All entries: {e}"
-                )
+            else:
+                try:
+                    with context.expect_page(timeout=15000) as new_page_info:
+                        case_button.click()
 
-                print(
-                    "Exporting currently available rows."
-                )
+                    case_page = new_page_info.value
+                    case_page.wait_for_load_state("domcontentloaded")
+                    case_page.wait_for_timeout(1500)
 
+                    print(f"Case details opened: {case_page.url}")
 
-            # Export ONLY the table
-            rows_written = export_table_to_csv(
-                target_table,
-                OUTPUT_FILE
-            )
+                    case_info_text = extract_case_information_text(case_page)
+                    sections_data = extract_case_sections(case_page)
 
-        else:
+                    case_page.close()
 
-            print(
-                "\nERROR: Could not locate the judgments table."
-            )
+                except Exception as e:
+                    print(f"Could not open/parse case details: {e}")
 
-            # Save HTML only for debugging
-            Path(
-                "bbmp_debug.html"
-            ).write_text(
-                page.content(),
-                encoding="utf-8"
-            )
+            write_success = False
+            for save_attempt in range(3):
+                try:
+                    write_case_workbook(output_filename, base_row, case_info_text, sections_data)
+                    write_success = True
+                    break
+                except PermissionError as e:
+                    print(f"  File locked ({output_filename}), retrying in 2s... ({e})")
+                    page.wait_for_timeout(2000)
 
+            if write_success:
+                files_written += 1
+            else:
+                print(f"  FAILED to save {output_filename} after 3 attempts -- skipping.")
+
+            print(f"Saved: {output_filename}")
+
+            # Be polite to the server between cases
+            page.wait_for_timeout(800)
+
+        print("\n" + "=" * 60)
+        print(f"SUCCESS: Wrote {files_written} case workbook(s).")
+        print("=" * 60)
 
     else:
+        print(f"\nCould not complete the search after {max_attempts} attempts.")
+        Path("bbmp_debug.html").write_text(page.content(), encoding="utf-8")
+        print("Saved bbmp_debug.html for inspection.")
 
-        print(
-            "\nCould not complete the search after "
-            f"{max_attempts} attempts."
-        )
-
-        # Save the full page only for debugging
-        Path(
-            "bbmp_debug.html"
-        ).write_text(
-            page.content(),
-            encoding="utf-8"
-        )
-
-        print(
-            "Saved bbmp_debug.html for inspection."
-        )
-
-
-    # ========================================================
-    # 7. KEEP BROWSER OPEN
-    # ========================================================
-
-    print("\n" + "=" * 60)
-    print("Browser is held open.")
-    print("=" * 60)
-
-    input(
-        "Press Enter in this terminal to close the browser..."
-    )
+    print("\nBrowser is held open.")
+    input("Press Enter in this terminal to close the browser...")
 
     context.close()
     browser.close()
