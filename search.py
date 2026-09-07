@@ -19,9 +19,6 @@ pytesseract.pytesseract.tesseract_cmd = (
 
 URL = "https://www.judiciary.karnataka.gov.in/rep_judgment.php"
 
-# Used to build output filenames: BBMP_Case1.xlsx, BBMP_Case2.xlsx, ...
-SEARCH_NAME = "BBMP"
-
 # Exact sheet order requested, mapped to their div id.
 # "H" (Case Information) is handled separately below since, unlike
 # every other section, its content div has no id and is visible by
@@ -198,52 +195,124 @@ def sanitize_sheet_name(name):
     return cleaned[:31]
 
 
+def sanitize_filename_part(name):
+    """Keep user-provided aliases safe for Windows output filenames."""
+    cleaned = re.sub(r'[<>:"/\\|?*]', "-", name).strip(" .")
+    return cleaned or "Search"
+
+
+def parse_user_date(value):
+    """Parse a user date in DD-MM-YYYY format."""
+    return datetime.strptime(value.strip(), "%d-%m-%Y")
+
+
+def split_date_range(start_date, end_date, max_days=90):
+    """Split an inclusive date range into consecutive windows of at most 90 days."""
+    ranges = []
+    current_start = start_date
+
+    while current_start <= end_date:
+        current_end = min(
+            current_start + timedelta(days=max_days - 1),
+            end_date,
+        )
+        ranges.append((current_start, current_end))
+        current_start = current_end + timedelta(days=1)
+
+    return ranges
+
+
+def case_identity(base_row):
+    """Return a stable key for recognizing the same case across aliases."""
+    identifier = tuple(
+        clean_text(str(base_row.get(field, ""))).lower()
+        for field in ("Case Type", "Case No", "Case Year")
+    )
+
+    if all(identifier):
+        return identifier
+
+    return tuple(
+        sorted(
+            (str(key).lower(), clean_text(str(value)).lower())
+            for key, value in base_row.items()
+        )
+    )
+
+
 # ============================================================
 # WRITE ONE CASE'S WORKBOOK
 # ============================================================
 
-def write_case_workbook(filename, base_row, case_info_text, sections_data):
-    """
-    Writes a single .xlsx with sheets in this exact order:
-        Summary, Case Information, Prayer Information, Party Information,
-        Caveator/Caveatee Information, Trial/Appellate Information,
-        Supreme Court Appellate Information, Daily Orders Information,
-        Linked Cases, Judgment Information,
-        Certified Copy Information (Final Order),
-        Certified Copy Information (Interim Order),
-        Index Sheet Information, Scrutiny Information,
-        Interlocutory Applications (IA) Information,
-        Documents Information, Postal Information,
-        Judicial Deposit, Fees Information
-    Every sheet is created even when there's no data for it.
-    """
+def split_party_names(value):
+    """Split the judgment table's combined petitioner/respondent value."""
+    parts = re.split(r"\s+V/S\s+", clean_text(str(value)), maxsplit=1, flags=re.IGNORECASE)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return parts[0], ""
+
+
+def case_sheet_name(base_row, used_names):
+    """Create a unique Excel sheet name from case type, number, and year."""
+    parts = [
+        clean_text(str(base_row.get(field, "")))
+        for field in ("Case Type", "Case No", "Case Year")
+    ]
+    base_name = sanitize_sheet_name("_".join(part for part in parts if part) or "Case")
+    sheet_name = base_name
+    suffix = 2
+
+    while sheet_name in used_names or sheet_name == "Summary":
+        suffix_text = f"_{suffix}"
+        sheet_name = f"{base_name[:31 - len(suffix_text)]}{suffix_text}"
+        suffix += 1
+
+    used_names.add(sheet_name)
+    return sheet_name
+
+
+def write_combined_workbook(filename, cases):
+    """Write one summary sheet and one organized detail sheet per unique case."""
+    summary_rows = []
+    used_sheet_names = set()
 
     with pd.ExcelWriter(filename, engine="openpyxl") as writer:
+        for case in cases:
+            base_row = case["base_row"]
+            petitioner, respondent = split_party_names(
+                base_row.get("Petitioner V/S Respondent Name", "")
+            )
+            summary_rows.append(
+                {
+                    "SlNo": len(summary_rows) + 1,
+                    "Case Type": base_row.get("Case Type", ""),
+                    "Case No": base_row.get("Case No", ""),
+                    "Year": base_row.get("Case Year", ""),
+                    "Petitioner": petitioner,
+                    "Respondent": respondent,
+                }
+            )
 
-        # --- Sheet 1: Summary (original judgment table row) ---
-        summary_df = pd.DataFrame([base_row]) if base_row else pd.DataFrame()
+        summary_df = pd.DataFrame(
+            summary_rows,
+            columns=["SlNo", "Case Type", "Case No", "Year", "Petitioner", "Respondent"],
+        )
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
-        # --- Sheet 2: Case Information ---
-        if case_info_text:
-            case_info_df = pd.DataFrame([{DETAILS_COLUMN: case_info_text}])
-        else:
-            case_info_df = pd.DataFrame(columns=[DETAILS_COLUMN])
-        case_info_df.to_excel(writer, sheet_name=sanitize_sheet_name("Case Information"), index=False)
-
-        # --- Sheets 3-19: the 17 remaining sections, in exact order ---
-        for _section_id, sheet_name in SECTION_ORDER:
-
-            text = sections_data.get(sheet_name)
-
-            if text:
-                section_df = pd.DataFrame([{DETAILS_COLUMN: text}])
-            else:
-                section_df = pd.DataFrame(columns=[DETAILS_COLUMN])
-
-            section_df.to_excel(
+        for case in cases:
+            base_row = case["base_row"]
+            sheet_name = case_sheet_name(base_row, used_sheet_names)
+            detail_rows = [{"Section": "Case Information", DETAILS_COLUMN: case["case_info_text"]}]
+            detail_rows.extend(
+                {
+                    "Section": section_name,
+                    DETAILS_COLUMN: case["sections_data"].get(section_name, ""),
+                }
+                for _section_id, section_name in SECTION_ORDER
+            )
+            pd.DataFrame(detail_rows, columns=["Section", DETAILS_COLUMN]).to_excel(
                 writer,
-                sheet_name=sanitize_sheet_name(sheet_name),
+                sheet_name=sheet_name,
                 index=False,
             )
 
@@ -251,6 +320,46 @@ def write_case_workbook(filename, base_row, case_info_text, sections_data):
 # ============================================================
 # MAIN PROGRAM
 # ============================================================
+
+alias_input = input("Enter entity aliases separated by commas: ")
+aliases = [alias.strip() for alias in alias_input.split(",") if alias.strip()]
+
+if not aliases:
+    raise SystemExit("No aliases were provided.")
+
+start_input = input("Enter start date (DD-MM-YYYY): ")
+end_input = input("Enter end date (DD-MM-YYYY): ")
+
+try:
+    overall_start = parse_user_date(start_input)
+    overall_end = parse_user_date(end_input)
+except ValueError:
+    raise SystemExit("Dates must use DD-MM-YYYY format, for example 01-01-2025.")
+
+if overall_start > overall_end:
+    raise SystemExit("Start date must be earlier than or equal to the end date.")
+
+bench_options = {
+    "1": ("B", "Principal Bench"),
+    "2": ("D", "Dharwad Bench"),
+    "3": ("K", "Kalaburagi Bench"),
+}
+print("Select bench:")
+print("1. Principal Bench")
+print("2. Dharwad Bench")
+print("3. Kalaburagi Bench")
+bench_choice = input("Enter bench number: ").strip()
+
+if bench_choice not in bench_options:
+    raise SystemExit("Bench must be 1, 2, or 3.")
+
+bench_value, bench_name = bench_options[bench_choice]
+date_ranges = split_date_range(overall_start, overall_end)
+search_jobs = [
+    (alias, range_start, range_end)
+    for alias in aliases
+    for range_start, range_end in date_ranges
+]
 
 with sync_playwright() as p:
 
@@ -261,180 +370,169 @@ with sync_playwright() as p:
     print("Opening Karnataka Judiciary website...")
     page.goto(URL, wait_until="networkidle")
 
-    print("Selecting Principal Bench At Bengaluru...")
-    page.locator("#db_bench").select_option("B")
+    print(f"Selecting {bench_name}...")
+    page.locator("#db_bench").select_option(bench_value)
     page.wait_for_timeout(2000)
 
-    respondent = page.locator("#respondname")
-    respondent.wait_for(state="visible")
-    respondent.fill("B.B.M.P")
-    print("Respondent Name entered: BBMP")
+    seen_cases = set()
+    duplicates_skipped = 0
+    collected_cases = []
 
-    to_date = datetime.now()
-    from_date = to_date - timedelta(days=90)
-    page.locator("#dp1").fill(from_date.strftime("%Y-%m-%d"))
-    page.locator("#dp2").fill(to_date.strftime("%Y-%m-%d"))
-    print(f"Date Range: {from_date.strftime('%Y-%m-%d')} to {to_date.strftime('%Y-%m-%d')}")
+    for alias, from_date, to_date in search_jobs:
+        safe_alias = sanitize_filename_part(alias)
+        range_label = f"{from_date:%Y%m%d}-{to_date:%Y%m%d}"
+        print(
+            f"\n{'=' * 60}\n"
+            f"Searching alias: {alias}\n"
+            f"Date window: {from_date:%Y-%m-%d} to {to_date:%Y-%m-%d}\n"
+            f"{'=' * 60}"
+        )
 
-    # --------------------------------------------------------
-    # CAPTCHA ATTEMPTS
-    # --------------------------------------------------------
+        respondent = page.locator("#respondname")
+        respondent.wait_for(state="visible")
+        respondent.fill(alias)
+        print(f"Respondent Name entered: {alias}")
 
-    max_attempts = 5
-    success = False
-    results = None
+        page.locator("#dp1").fill(from_date.strftime("%Y-%m-%d"))
+        page.locator("#dp2").fill(to_date.strftime("%Y-%m-%d"))
+        print(f"Date Range: {from_date.strftime('%Y-%m-%d')} to {to_date.strftime('%Y-%m-%d')}")
 
-    for attempt in range(1, max_attempts + 1):
+        max_attempts = 5
+        success = False
+        results = None
 
-        print(f"\nCAPTCHA Attempt {attempt} of {max_attempts}")
+        for attempt in range(1, max_attempts + 1):
+            print(f"\nCAPTCHA Attempt {attempt} of {max_attempts}")
 
-        captcha_text = solve_captcha(page)
-        print(f"OCR detected CAPTCHA: '{captcha_text}'")
+            captcha_text = solve_captcha(page)
+            print(f"OCR detected CAPTCHA: '{captcha_text}'")
 
-        if len(captcha_text) != 6:
-            print("OCR did not detect exactly 6 digits. Reloading CAPTCHA...")
-            page.locator("#reload-button").click()
-            page.wait_for_timeout(2000)
-            continue
-
-        page.locator("#vercode").fill(captcha_text)
-        print("Clicking Search...")
-        page.locator("#generate").click()
-
-        try:
-            results = page.locator("#dynamic-content-year")
-            results.wait_for(state="visible", timeout=10000)
-            page.wait_for_timeout(2000)
-
-            target_table = find_judgments_table(results)
-
-            if target_table is not None:
-                success = True
-                print("Search successful!")
-                break
-            else:
-                raise Exception("Judgments table not found")
-
-        except Exception as e:
-            print(f"Search attempt failed: {e}")
-            try:
+            if len(captcha_text) != 6:
+                print("OCR did not detect exactly 6 digits. Reloading CAPTCHA...")
                 page.locator("#reload-button").click()
                 page.wait_for_timeout(2000)
-                page.locator("#vercode").fill("")
-            except Exception:
-                print("Could not reload CAPTCHA automatically.")
-
-    # ========================================================
-    # LOOP OVER EVERY CASE ROW -- ONE WORKBOOK PER CASE
-    # ========================================================
-
-    files_written = 0
-
-    if success:
-
-        target_table = find_judgments_table(results)
-
-        # Select "All" entries so we don't miss rows past page 1
-        try:
-            print("\nSelecting All entries...")
-            page.locator('select[name="example1_length"]').select_option("-1")
-            page.wait_for_timeout(2000)
-            target_table = find_judgments_table(results)
-        except Exception as e:
-            print(f"Could not select All entries: {e}")
-
-        row_count = target_table.locator("tbody tr").count()
-        print(f"\nTotal case rows found: {row_count}")
-
-        case_num = 0
-
-        for i in range(row_count):
-
-            print("\n" + "=" * 60)
-            print(f"ROW {i + 1} of {row_count}")
-            print("=" * 60)
-
-            # Re-fetch the table + row fresh each loop, since the
-            # page can re-render after a popup closes
-            target_table = find_judgments_table(results)
-            case_row_el = target_table.locator("tbody tr").nth(i)
-
-            cells = [
-                c.strip().replace("\n", " ")
-                for c in case_row_el.locator("td").all_inner_texts()
-            ]
-
-            if len(cells) < 2:
-                print("Skipping malformed row.")
                 continue
 
-            headers = [
-                h.strip().replace("\n", " ")
-                for h in target_table.locator("thead th").all_inner_texts()
-            ]
-            base_row = dict(zip(headers, cells))
+            page.locator("#vercode").fill(captcha_text)
+            print("Clicking Search...")
+            page.locator("#generate").click()
 
-            case_num += 1
-            output_filename = f"{SEARCH_NAME}_Case{case_num}.xlsx"
+            try:
+                results = page.locator("#dynamic-content-year")
+                results.wait_for(state="visible", timeout=10000)
+                page.wait_for_timeout(2000)
 
-            case_info_text = ""
-            sections_data = {}
-
-            case_button = case_row_el.locator('button[onclick*="casedetails"]').first
-
-            if case_button.count() == 0:
-                print("No case details button in this row -- Summary sheet only.")
-
-            else:
-                try:
-                    with context.expect_page(timeout=15000) as new_page_info:
-                        case_button.click()
-
-                    case_page = new_page_info.value
-                    case_page.wait_for_load_state("domcontentloaded")
-                    case_page.wait_for_timeout(1500)
-
-                    print(f"Case details opened: {case_page.url}")
-
-                    case_info_text = extract_case_information_text(case_page)
-                    sections_data = extract_case_sections(case_page)
-
-                    case_page.close()
-
-                except Exception as e:
-                    print(f"Could not open/parse case details: {e}")
-
-            write_success = False
-            for save_attempt in range(3):
-                try:
-                    write_case_workbook(output_filename, base_row, case_info_text, sections_data)
-                    write_success = True
+                target_table = find_judgments_table(results)
+                if target_table is not None:
+                    success = True
+                    print("Search successful!")
                     break
-                except PermissionError as e:
-                    print(f"  File locked ({output_filename}), retrying in 2s... ({e})")
+                raise Exception("Judgments table not found")
+
+            except Exception as e:
+                print(f"Search attempt failed: {e}")
+                try:
+                    page.locator("#reload-button").click()
                     page.wait_for_timeout(2000)
+                    page.locator("#vercode").fill("")
+                except Exception:
+                    print("Could not reload CAPTCHA automatically.")
 
-            if write_success:
-                files_written += 1
-            else:
-                print(f"  FAILED to save {output_filename} after 3 attempts -- skipping.")
+        if success:
+            target_table = find_judgments_table(results)
 
-            print(f"Saved: {output_filename}")
+            try:
+                print("\nSelecting All entries...")
+                page.locator('select[name="example1_length"]').select_option("-1")
+                page.wait_for_timeout(2000)
+                target_table = find_judgments_table(results)
+            except Exception as e:
+                print(f"Could not select All entries: {e}")
 
-            # Be polite to the server between cases
-            page.wait_for_timeout(800)
+            row_count = target_table.locator("tbody tr").count()
+            print(f"\nTotal case rows found: {row_count}")
 
-        print("\n" + "=" * 60)
-        print(f"SUCCESS: Wrote {files_written} case workbook(s).")
-        print("=" * 60)
+            for i in range(row_count):
+                print("\n" + "=" * 60)
+                print(f"ROW {i + 1} of {row_count}")
+                print("=" * 60)
 
-    else:
-        print(f"\nCould not complete the search after {max_attempts} attempts.")
-        Path("bbmp_debug.html").write_text(page.content(), encoding="utf-8")
-        print("Saved bbmp_debug.html for inspection.")
+                target_table = find_judgments_table(results)
+                case_row_el = target_table.locator("tbody tr").nth(i)
+                cells = [
+                    c.strip().replace("\n", " ")
+                    for c in case_row_el.locator("td").all_inner_texts()
+                ]
+
+                if len(cells) < 2:
+                    print("Skipping malformed row.")
+                    continue
+
+                headers = [
+                    h.strip().replace("\n", " ")
+                    for h in target_table.locator("thead th").all_inner_texts()
+                ]
+                base_row = dict(zip(headers, cells))
+                identity = case_identity(base_row)
+
+                if identity in seen_cases:
+                    duplicates_skipped += 1
+                    print(f"Skipping duplicate case found through alias: {alias}")
+                    continue
+
+                seen_cases.add(identity)
+                case_info_text = ""
+                sections_data = {}
+                case_button = case_row_el.locator('button[onclick*="casedetails"]').first
+
+                if case_button.count() == 0:
+                    print("No case details button in this row -- Summary sheet only.")
+                else:
+                    try:
+                        with context.expect_page(timeout=15000) as new_page_info:
+                            case_button.click()
+
+                        case_page = new_page_info.value
+                        case_page.wait_for_load_state("domcontentloaded")
+                        case_page.wait_for_timeout(1500)
+                        print(f"Case details opened: {case_page.url}")
+                        case_info_text = extract_case_information_text(case_page)
+                        sections_data = extract_case_sections(case_page)
+                        case_page.close()
+                    except Exception as e:
+                        print(f"Could not open/parse case details: {e}")
+
+                collected_cases.append(
+                    {
+                        "base_row": base_row,
+                        "case_info_text": case_info_text,
+                        "sections_data": sections_data,
+                    }
+                )
+                print("Collected case for the combined workbook.")
+
+                page.wait_for_timeout(800)
+
+            print("\n" + "=" * 60)
+            print(
+                f"SUCCESS: Collected results for {alias}. "
+                f"Duplicates skipped so far: {duplicates_skipped}."
+            )
+            print("=" * 60)
+        else:
+            print(f"\nCould not complete the search for {alias} after {max_attempts} attempts.")
+            debug_filename = f"{safe_alias}_{range_label}_debug.html"
+            Path(debug_filename).write_text(page.content(), encoding="utf-8")
+            print(f"Saved {debug_filename} for inspection.")
+
+    output_filename = "Case_Search_Results.xlsx"
+    write_combined_workbook(output_filename, collected_cases)
+    print(
+        f"\nWrote {output_filename} with {len(collected_cases)} unique case sheet(s). "
+        f"Duplicates skipped: {duplicates_skipped}."
+    )
 
     print("\nBrowser is held open.")
     input("Press Enter in this terminal to close the browser...")
-
     context.close()
     browser.close()
