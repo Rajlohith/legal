@@ -18,6 +18,7 @@ from config import (
     SEARCH_URL,
     MAX_CAPTCHA_ATTEMPTS,
     DEFAULT_OUTPUT_FILENAME,
+    REPORT_TYPE_RADIO_IDS,
 )
 from scraper.captcha import solve_captcha
 from scraper.table_utils import find_judgments_table
@@ -58,23 +59,66 @@ class SearchEngine:
     # ------------------------------------------------------------------
 
     def run(self, aliases, overall_start, overall_end, bench_value, bench_name,
-            output_path=None):
+            output_path=None, *, alias_field="respondname",
+            case_type=None, case_no=None, case_year=None,
+            petitioner_name=None, respondent_name=None,
+            petitioner_adv=None, respondent_adv=None,
+            judge=None, author_judge=None, coram=None, report_type=None):
         """
-        aliases: list[str]
-        overall_start/overall_end: datetime
-        bench_value: "B" | "D" | "K"
+        aliases: list[str] -- entity names to loop the search over, one
+                 job per alias per date window. Each alias is placed
+                 into `alias_field` ("respondname" or "petname"); every
+                 other field below stays constant across the loop.
+                 May be empty/None, in which case a single job runs
+                 using petitioner_name/respondent_name as given.
+        overall_start/overall_end: datetime, or both None to search by
+                 Case Type + Case Number + Case Year only (matches the
+                 site's own rule: dates are only required when a case
+                 number search isn't fully specified).
+        bench_value: "B" | "D" | "K"  (the registry/#db_bench bench)
         output_path: full path to the .xlsx to write; defaults to
                      DEFAULT_OUTPUT_FILENAME in the current directory.
 
-        Returns a dict summary: {output_path, case_count, duplicates_skipped, cancelled}
+        case_type/case_no/case_year, petitioner_name/respondent_name,
+        petitioner_adv/respondent_adv, judge/author_judge, coram,
+        report_type -- all optional, all map 1:1 onto the site's own
+        search fields (see config.py's field-mapping notes). Every one
+        of these is left untouched on the page when not supplied, same
+        as a person leaving that field blank.
+
+        Returns a dict summary: {output_path, case_count,
+        duplicates_skipped, cancelled, cases}. `cases` is the raw
+        collected-case list (base_row + case_info_text + sections_data
+        per case), useful for a caller that wants to display results
+        beyond the Excel file.
         """
         self._stop_requested = False
         output_path = output_path or DEFAULT_OUTPUT_FILENAME
 
-        date_ranges = split_date_range(overall_start, overall_end)
+        static_fields = {
+            "case_type": case_type,
+            "case_no": case_no,
+            "case_year": case_year,
+            "petitioner_name": petitioner_name,
+            "respondent_name": respondent_name,
+            "petitioner_adv": petitioner_adv,
+            "respondent_adv": respondent_adv,
+            "judge": judge,
+            "author_judge": author_judge,
+            "coram": coram,
+            "report_type": report_type,
+        }
+
+        if overall_start and overall_end:
+            date_ranges = split_date_range(overall_start, overall_end)
+        else:
+            date_ranges = [(None, None)]
+
+        alias_list = list(aliases) if aliases else [None]
+
         search_jobs = [
             (alias, range_start, range_end)
-            for alias in aliases
+            for alias in alias_list
             for range_start, range_end in date_ranges
         ]
 
@@ -102,15 +146,27 @@ class SearchEngine:
                 for alias, from_date, to_date in search_jobs:
                     self._check_stop()
 
-                    safe_alias = sanitize_filename_part(alias)
-                    range_label = f"{from_date:%Y%m%d}-{to_date:%Y%m%d}"
-                    self.log(
-                        f"Searching alias '{alias}' "
-                        f"({from_date:%Y-%m-%d} to {to_date:%Y-%m-%d})"
+                    safe_alias = sanitize_filename_part(
+                        alias or static_fields.get("respondent_name")
+                        or static_fields.get("petitioner_name")
+                        or static_fields.get("case_no") or "Search"
+                    )
+                    range_label = (
+                        f"{from_date:%Y%m%d}-{to_date:%Y%m%d}" if from_date else "nodate"
                     )
 
+                    if alias:
+                        self.log(f"Searching '{alias}'" + (
+                            f" ({from_date:%Y-%m-%d} to {to_date:%Y-%m-%d})" if from_date else ""
+                        ))
+                    else:
+                        self.log("Running search" + (
+                            f" ({from_date:%Y-%m-%d} to {to_date:%Y-%m-%d})" if from_date else ""
+                        ))
+
                     self._run_one_job(
-                        page, context, alias, from_date, to_date,
+                        page, context, alias, alias_field, static_fields,
+                        from_date, to_date,
                         seen_cases, collected_cases,
                         safe_alias, range_label,
                         results_holder := {"duplicates": 0},
@@ -138,26 +194,28 @@ class SearchEngine:
             "case_count": len(collected_cases),
             "duplicates_skipped": duplicates_skipped,
             "cancelled": cancelled,
+            "cases": collected_cases,
         }
 
     # ------------------------------------------------------------------
     # One (alias, date-window) search job
     # ------------------------------------------------------------------
 
-    def _run_one_job(self, page, context, alias, from_date, to_date,
+    def _run_one_job(self, page, context, alias, alias_field, static_fields,
+                      from_date, to_date,
                       seen_cases, collected_cases, safe_alias, range_label,
                       results_holder):
         respondent = page.locator("#respondname")
         respondent.wait_for(state="visible")
-        respondent.fill(alias)
 
-        page.locator("#dp1").fill(from_date.strftime("%Y-%m-%d"))
-        page.locator("#dp2").fill(to_date.strftime("%Y-%m-%d"))
+        self._fill_search_form(page, alias, alias_field, static_fields, from_date, to_date)
 
         success, results = self._solve_and_search(page)
 
+        job_label = alias or safe_alias
+
         if not success:
-            self.log(f"Could not complete the search for '{alias}' after {MAX_CAPTCHA_ATTEMPTS} attempts.")
+            self.log(f"Could not complete the search for '{job_label}' after {MAX_CAPTCHA_ATTEMPTS} attempts.")
             debug_filename = f"{safe_alias}_{range_label}_debug.html"
             Path(debug_filename).write_text(page.content(), encoding="utf-8")
             self.log(f"Saved {debug_filename} for inspection.")
@@ -173,7 +231,7 @@ class SearchEngine:
             self.log(f"Could not select All entries: {e}")
 
         row_count = target_table.locator("tbody tr").count()
-        self.log(f"Found {row_count} case row(s) for '{alias}'.")
+        self.log(f"Found {row_count} case row(s) for '{job_label}'.")
 
         for i in range(row_count):
             self._check_stop()
@@ -229,9 +287,60 @@ class SearchEngine:
             page.wait_for_timeout(800)
 
         self.log(
-            f"Collected results for '{alias}'. "
+            f"Collected results for '{job_label}'. "
             f"Duplicates skipped so far: {results_holder['duplicates']}."
         )
+
+    # ------------------------------------------------------------------
+    # Filling every optional field the site's own form exposes
+    # ------------------------------------------------------------------
+
+    def _fill_search_form(self, page, alias, alias_field, static_fields, from_date, to_date):
+        """
+        Fills in every field the site's #form1 exposes, leaving each
+        one blank/untouched (i.e. exactly as a person left it) when no
+        value was supplied. `alias`, when given, overrides whichever
+        of petitioner/respondent name `alias_field` points at for this
+        one job, so a multi-entity search can loop the alias while
+        keeping every other field constant.
+        """
+        if static_fields.get("judge"):
+            page.locator("#cmbjudge").select_option(static_fields["judge"])
+        if static_fields.get("author_judge"):
+            page.locator("#cmbauthjudge").select_option(static_fields["author_judge"])
+        if static_fields.get("coram"):
+            page.locator("#cmbbench").select_option(static_fields["coram"])
+        if static_fields.get("case_type"):
+            page.locator("#cmbcasetype").select_option(static_fields["case_type"])
+        if static_fields.get("case_no"):
+            page.locator("#caseno").fill(str(static_fields["case_no"]))
+        if static_fields.get("case_year"):
+            page.locator("#caseyear").select_option(str(static_fields["case_year"]))
+
+        petitioner_name = static_fields.get("petitioner_name") or ""
+        respondent_name = static_fields.get("respondent_name") or ""
+        if alias:
+            if alias_field == "petname":
+                petitioner_name = alias
+            else:
+                respondent_name = alias
+
+        if petitioner_name:
+            page.locator("#petname").fill(petitioner_name)
+        if respondent_name:
+            page.locator("#respondname").fill(respondent_name)
+        if static_fields.get("petitioner_adv"):
+            page.locator("#petadv").fill(static_fields["petitioner_adv"])
+        if static_fields.get("respondent_adv"):
+            page.locator("#respondadv").fill(static_fields["respondent_adv"])
+
+        if from_date and to_date:
+            page.locator("#dp1").fill(from_date.strftime("%Y-%m-%d"))
+            page.locator("#dp2").fill(to_date.strftime("%Y-%m-%d"))
+
+        report_value = static_fields.get("report_type") or "none"
+        radio_id = REPORT_TYPE_RADIO_IDS.get(report_value, "r3")
+        page.locator(f"#{radio_id}").check()
 
     # ------------------------------------------------------------------
     # CAPTCHA loop
