@@ -50,3 +50,15 @@ class SearchCriteria(BaseModel):
 class SearchStartResponse(BaseModel):
     started: bool
     message: str
+
+
+class CaseNumberSearchCriteria(BaseModel):
+    """Fields for the site's separate 'Quick Search by Case No.' page --
+    just Bench + Case Type + Case Number + Case Year, all required."""
+
+    db_bench: str = Field(..., description='"B" | "D" | "K"')
+    case_type: str = Field(..., description="Case type code, e.g. 156")
+    case_no: str = Field(..., description="Digits only, max 6")
+    case_year: str = Field(..., description="e.g. 2024")
+
+    output_filename: Optional[str] = None

@@ -15,6 +15,15 @@ import platform
 
 SEARCH_URL = "https://www.judiciary.karnataka.gov.in/rep_judgment.php"
 
+# The site's own "Quick Search by Case No." page (separate from the
+# Detailed Search above) -- linked from the site's Judgments menu as
+# rep_judgmentcasebc.php. Same site codebase, so it reuses the same
+# element ids (#db_bench, #cmbcasetype, #caseno, #caseyear, #vercode,
+# #generate, #reload-button, #dynamic-content-year) but exposes only
+# Bench + Case Type + Case Number + Case Year -- no dates, no judge,
+# no party names.
+CASE_NUMBER_SEARCH_URL = "https://www.judiciary.karnataka.gov.in/rep_judgmentcasebc.php"
+
 # ------------------------------------------------------------------
 # Case detail sections
 # ------------------------------------------------------------------

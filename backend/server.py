@@ -38,6 +38,7 @@ from backend.job_manager import OUTPUT_DIR, job_manager
 from backend.schemas import (
     AiFillRequest,
     AiFillResponse,
+    CaseNumberSearchCriteria,
     JudgeLookupRequest,
     SearchCriteria,
     SearchStartResponse,
@@ -129,6 +130,20 @@ async def start_search(criteria: SearchCriteria):
 async def stop_search():
     stopped = job_manager.request_stop()
     return {"stopped": stopped}
+
+
+# ----------------------------------------------------------------------
+# Case Number search job (the site's separate "Quick Search by Case
+# No." page -- Bench + Case Type + Case Number + Case Year only)
+# ----------------------------------------------------------------------
+
+
+@app.post("/api/case-number-search", response_model=SearchStartResponse)
+async def start_case_number_search(criteria: CaseNumberSearchCriteria):
+    started, message = job_manager.start_case_number(
+        criteria.model_dump(), tesseract_cmd=TESSERACT_CMD, headless=SCRAPER_HEADLESS,
+    )
+    return SearchStartResponse(started=started, message=message)
 
 
 @app.get("/api/search/status")

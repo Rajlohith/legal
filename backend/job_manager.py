@@ -15,6 +15,7 @@ from pathlib import Path
 from config import BENCH_OPTIONS, DEFAULT_OUTPUT_FILENAME
 from scraper.date_utils import parse_user_date
 from scraper.search_engine import SearchEngine
+from scraper.case_number_search import CaseNumberSearchEngine
 from scraper.text_utils import sanitize_filename_part, split_party_names
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "outputs"
@@ -101,6 +102,21 @@ class JobManager:
         thread.start()
         return True, "Search started."
 
+    def start_case_number(self, criteria, tesseract_cmd=None, headless=True):
+        """Same one-at-a-time lock/subscriber machinery as start(), just
+        pointed at CaseNumberSearchEngine for the 'Quick Search by Case
+        No.' page instead of the Detailed Search page."""
+        with self._lock:
+            if self._is_running:
+                return False, "A search is already running. Stop it first."
+            self._is_running = True
+
+        thread = threading.Thread(
+            target=self._run_case_number_job, args=(criteria, tesseract_cmd, headless), daemon=True,
+        )
+        thread.start()
+        return True, "Search started."
+
     def request_stop(self):
         if self._engine:
             self._engine.request_stop()
@@ -158,6 +174,61 @@ class JobManager:
             author_judge=criteria.get("author_judge") or None,
             coram=criteria.get("coram") or None,
             report_type=criteria.get("report_type") or None,
+        )
+
+        self.last_result = summary
+        self._broadcast(
+            "done",
+            {
+                "output_filename": Path(summary["output_path"]).name,
+                "case_count": summary["case_count"],
+                "duplicates_skipped": summary["duplicates_skipped"],
+                "cancelled": summary["cancelled"],
+                "cases": _serialize_cases(summary["cases"]),
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # "Quick Search by Case No." job (Bench + Case Type + Case Number
+    # + Case Year only -- no dates, no aliases)
+    # ------------------------------------------------------------------
+
+    def _run_case_number_job(self, criteria, tesseract_cmd, headless):
+        try:
+            self._do_run_case_number(criteria, tesseract_cmd, headless)
+        except Exception as e:  # noqa: BLE001 -- surfaced to the UI, not swallowed
+            self._broadcast("error", str(e))
+        finally:
+            self._is_running = False
+            self._engine = None
+
+    def _do_run_case_number(self, criteria, tesseract_cmd, headless):
+        def log(message):
+            self._broadcast("log", message)
+
+        def on_progress(done, total):
+            self._broadcast("progress", {"done": done, "total": total})
+
+        self._engine = CaseNumberSearchEngine(
+            log=log, on_progress=on_progress, tesseract_cmd=tesseract_cmd, headless=headless,
+        )
+
+        bench_value = criteria["db_bench"]
+        bench_name = BENCH_VALUE_TO_NAME.get(bench_value, bench_value)
+
+        filename = criteria.get("output_filename") or DEFAULT_OUTPUT_FILENAME
+        if not filename.lower().endswith(".xlsx"):
+            filename += ".xlsx"
+        filename = sanitize_filename_part(filename.rsplit(".xlsx", 1)[0]) + ".xlsx"
+        output_path = str(OUTPUT_DIR / filename)
+
+        summary = self._engine.run(
+            bench_value,
+            bench_name,
+            criteria["case_type"],
+            criteria["case_no"],
+            criteria["case_year"],
+            output_path,
         )
 
         self.last_result = summary

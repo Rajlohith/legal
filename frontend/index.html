@@ -13,170 +13,48 @@
     <h1>Case Search</h1>
     <p>Karnataka Judiciary — judgment &amp; case record lookup</p>
   </div>
-  <div class="topbar__status" id="connStatus">
-    <span class="dot" id="connDot"></span>
-    <span id="connLabel">Connecting…</span>
-  </div>
 </header>
 
-<main class="layout">
+<main class="layout layout--landing">
 
-  <!-- ===================== Search card ===================== -->
-  <section class="card search-card">
-
-    <div class="tabs">
-      <button class="tab active" data-tab="manual" id="tabManualBtn">Manual Search</button>
-      <button class="tab" data-tab="ai" id="tabAiBtn">Describe your search (AI)</button>
-    </div>
-
-    <!-- ---- AI tab ---- -->
-    <div class="tab-panel" id="panelAi" hidden>
-      <label class="field-label" for="aiText">Describe the case or search you want</label>
-      <textarea id="aiText" rows="5" placeholder="e.g. Find writ petitions filed by Sri Nandeesh against the State of Karnataka in the Principal Bench sometime in 2023, reported judgments only."></textarea>
-      <div class="row-actions">
-        <button class="btn btn-primary" id="aiFillBtn">✨ Fill form with AI</button>
-        <span class="hint">The AI only fills the form below — it never runs the search itself.</span>
-      </div>
-      <div id="aiNotes" class="ai-notes" hidden></div>
-      <div id="aiError" class="error-banner" hidden></div>
-    </div>
-
-    <!-- ---- Manual tab (always the form of record; AI results land here too) ---- -->
-    <div class="tab-panel" id="panelManual">
-      <form id="searchForm">
-
-        <div class="field-group">
-          <label class="field-label" for="dbBench">Select Bench <span class="req">*</span></label>
-          <select id="dbBench" required>
-            <option value="">-- Select --</option>
-          </select>
-        </div>
-
-        <div class="grid-3">
-          <div class="field-group">
-            <label class="field-label" for="judge">Judge <span class="opt">(optional)</span></label>
-            <select id="judge"><option value="">-- Select bench first --</option></select>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="authJudge">Author Judge <span class="opt">(optional)</span></label>
-            <select id="authJudge"><option value="">-- Select bench first --</option></select>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="coram">Coram <span class="opt">(optional)</span></label>
-            <select id="coram"></select>
-          </div>
-        </div>
-
-        <div class="grid-3">
-          <div class="field-group">
-            <label class="field-label" for="caseType">Case Type <span class="opt">(optional)</span></label>
-            <select id="caseType"></select>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="caseNo">Case Number <span class="opt">(optional)</span></label>
-            <input type="text" id="caseNo" maxlength="6" inputmode="numeric" placeholder="e.g. 48907">
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="caseYear">Case Year <span class="opt">(optional)</span></label>
-            <select id="caseYear"></select>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="field-group">
-            <label class="field-label" for="petName">Petitioner Name <span class="opt">(optional)</span></label>
-            <input type="text" id="petName">
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="respName">Respondent Name <span class="opt">(optional)</span></label>
-            <input type="text" id="respName">
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="field-group">
-            <label class="field-label" for="petAdv">Petitioner Advocate <span class="opt">(optional)</span></label>
-            <input type="text" id="petAdv">
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="respAdv">Respondent Advocate <span class="opt">(optional)</span></label>
-            <input type="text" id="respAdv">
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label class="field-label" for="aliases">
-            Search multiple entities (optional)
-          </label>
-          <p class="hint">One name per line, or comma-separated. Each is searched in turn, applied to the field chosen on the right.</p>
-          <div class="grid-alias">
-            <textarea id="aliases" rows="3" placeholder="e.g.&#10;Sri Nandeesh&#10;ABC Constructions Pvt Ltd"></textarea>
-            <select id="aliasField">
-              <option value="respondname">Applies to: Respondent Name</option>
-              <option value="petname">Applies to: Petitioner Name</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label class="field-label">Date of Order</label>
-          <p class="hint">Required unless Case Type + Case Number + Case Year are all filled in. Ranges longer than 90 days are split into consecutive windows automatically.</p>
-          <div class="grid-2">
-            <div>
-              <label class="field-label-sm" for="fromDate">From</label>
-              <input type="date" id="fromDate">
-            </div>
-            <div>
-              <label class="field-label-sm" for="toDate">To</label>
-              <input type="date" id="toDate">
-            </div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label class="field-label">Report Type <span class="opt">(optional)</span></label>
-          <div class="radio-row" id="reportTypeRow"></div>
-        </div>
-
-        <div class="field-group">
-          <label class="field-label" for="outputFilename">Save results as <span class="opt">(optional)</span></label>
-          <input type="text" id="outputFilename" placeholder="Case_Search_Results.xlsx">
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-lg" id="runBtn">▶ Run Search</button>
-          <button type="button" class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
-        </div>
-
-        <div class="progress-wrap" hidden id="progressWrap">
-          <div class="progress-bar"><div class="progress-bar__fill" id="progressFill"></div></div>
-          <p class="progress-label" id="progressLabel">Ready</p>
-        </div>
-      </form>
-    </div>
+  <section class="landing-intro">
+    <h2>Choose how you'd like to search</h2>
+    <p class="hint">Both options drive the same Playwright + Tesseract scraper against the Karnataka Judiciary
+      website and hand back live progress, an expandable results view, and a combined Excel workbook.</p>
   </section>
 
-  <!-- ===================== Activity log ===================== -->
-  <section class="card log-card">
-    <div class="card-header">
-      <h2>Activity Log</h2>
-      <button class="btn btn-ghost btn-sm" id="clearLogBtn">Clear</button>
-    </div>
-    <div class="log-box" id="logBox"></div>
-  </section>
+  <section class="option-grid">
 
-  <!-- ===================== Results ===================== -->
-  <section class="card results-card" id="resultsCard" hidden>
-    <div class="card-header">
-      <h2>Results</h2>
-      <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download>⬇ Download Excel</a>
-    </div>
-    <p class="results-summary" id="resultsSummary"></p>
-    <div id="resultsList" class="results-list"></div>
+    <a class="option-card" href="search.html">
+      <div class="option-card__icon" aria-hidden="true">🔎</div>
+      <h3>Detailed Search</h3>
+      <p>Search by Judge, Coram, Case Type/Number/Year, Petitioner/Respondent name or advocate, a Date of Order
+        range, Report Type, and optional multi-entity aliases — every field the site's Detailed Search page
+        exposes.</p>
+      <ul class="option-card__points">
+        <li>Best for broad or exploratory searches</li>
+        <li>Search several names in one run</li>
+        <li>Date-of-order range (or a full Case No. match)</li>
+      </ul>
+      <span class="option-card__cta">Open Detailed Search →</span>
+    </a>
+
+    <a class="option-card" href="case-number.html">
+      <div class="option-card__icon" aria-hidden="true">📄</div>
+      <h3>Case Number Search</h3>
+      <p>The site's separate "Quick Search by Case No." page. Just Bench, Case Type, Case Number, and Case Year —
+        no date range, no party names, no judge filters.</p>
+      <ul class="option-card__points">
+        <li>Best when you already know the exact case</li>
+        <li>Only 4 fields to fill in</li>
+        <li>Fastest way to pull one case's details</li>
+      </ul>
+      <span class="option-card__cta">Open Case Number Search →</span>
+    </a>
+
   </section>
 
 </main>
 
-<script src="app.js"></script>
 </body>
 </html>
