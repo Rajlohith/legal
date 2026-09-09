@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detailed Search — Karnataka Judiciary Case Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
+            Search</span></a>
+        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="sidebar__nav">
+        <a href="index.html" class="sidebar__link" title="Home"><i data-lucide="home"></i><span
+            class="label">Home</span></a>
+        <a href="search.html" class="sidebar__link sidebar__link--active" title="Detailed Search"><i
+            data-lucide="search"></i><span class="label">Detailed Search</span></a>
+        <a href="case-number.html" class="sidebar__link" title="Quick Search"><i data-lucide="zap"></i><span
+            class="label">Quick Search</span></a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+
+      <header class="topbar">
+        <div class="topbar__title">
+          <h1><i data-lucide="search"></i> Detailed Search</h1>
+          <p>Karnataka Judiciary — judgment &amp; case record lookup</p>
+        </div>
+        <div class="topbar__status" id="connStatus">
+          <span class="dot" id="connDot"></span>
+          <span id="connLabel">Connecting…</span>
+        </div>
+      </header>
+
+      <main class="layout">
+
+        <!-- ===================== Search card ===================== -->
+        <section class="card search-card">
+
+          <div class="tabs">
+            <button class="tab active" data-tab="manual" id="tabManualBtn">Manual Search</button>
+            <button class="tab" data-tab="ai" id="tabAiBtn">Describe your search (AI)</button>
+          </div>
+
+          <!-- ---- AI tab ---- -->
+          <div class="tab-panel" id="panelAi" hidden>
+            <label class="field-label" for="aiText">Describe the case or search you want</label>
+            <textarea id="aiText" rows="5"
+              placeholder="e.g. Find writ petitions filed by Sri Nandeesh against the State of Karnataka in the Principal Bench sometime in 2023, reported judgments only."></textarea>
+            <div class="row-actions">
+              <button class="btn btn-primary" id="aiFillBtn">✨ Fill form with AI</button>
+              <span class="hint">The AI only fills the form below — it never runs the search itself.</span>
+            </div>
+            <div id="aiNotes" class="ai-notes" hidden></div>
+            <div id="aiError" class="error-banner" hidden></div>
+          </div>
+
+          <!-- ---- Manual tab (always the form of record; AI results land here too) ---- -->
+          <div class="tab-panel" id="panelManual">
+            <form id="searchForm">
+
+              <div class="field-group">
+                <label class="field-label" for="dbBench">Select Bench <span class="req">*</span></label>
+                <select id="dbBench" required>
+                  <option value="">-- Select --</option>
+                </select>
+              </div>
+
+              <div class="grid-3">
+                <div class="field-group">
+                  <label class="field-label" for="judge">Judge <span class="opt">(optional)</span></label>
+                  <select id="judge">
+                    <option value="">-- Select bench first --</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="authJudge">Author Judge <span class="opt">(optional)</span></label>
+                  <select id="authJudge">
+                    <option value="">-- Select bench first --</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="coram">Coram <span class="opt">(optional)</span></label>
+                  <select id="coram"></select>
+                </div>
+              </div>
+
+              <div class="grid-3">
+                <div class="field-group">
+                  <label class="field-label" for="caseType">Case Type <span class="opt">(optional)</span></label>
+                  <select id="caseType"></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="caseNo">Case Number <span class="opt">(optional)</span></label>
+                  <input type="text" id="caseNo" maxlength="6" inputmode="numeric" placeholder="e.g. 48907">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="caseYear">Case Year <span class="opt">(optional)</span></label>
+                  <select id="caseYear"></select>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="petName">Petitioner Name <span class="opt">(optional)</span></label>
+                  <input type="text" id="petName">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="respName">Respondent Name <span class="opt">(optional)</span></label>
+                  <input type="text" id="respName">
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="petAdv">Petitioner Advocate <span
+                      class="opt">(optional)</span></label>
+                  <input type="text" id="petAdv">
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="respAdv">Respondent Advocate <span
+                      class="opt">(optional)</span></label>
+                  <input type="text" id="respAdv">
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="aliases">
+                  Search multiple entities (optional)
+                </label>
+                <p class="hint">One name per line, or comma-separated. Each is searched in turn, applied to the field
+                  chosen
+                  on the right.</p>
+                <div class="grid-alias">
+                  <textarea id="aliases" rows="3"
+                    placeholder="e.g.&#10;Sri Nandeesh&#10;ABC Constructions Pvt Ltd"></textarea>
+                  <select id="aliasField">
+                    <option value="respondname">Applies to: Respondent Name</option>
+                    <option value="petname">Applies to: Petitioner Name</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Date of Order</label>
+                <p class="hint">Required unless Case Type + Case Number + Case Year are all filled in. Ranges longer
+                  than 90
+                  days are split into consecutive windows automatically.</p>
+                <div class="grid-2">
+                  <div>
+                    <label class="field-label-sm" for="fromDate">From</label>
+                    <input type="date" id="fromDate">
+                  </div>
+                  <div>
+                    <label class="field-label-sm" for="toDate">To</label>
+                    <input type="date" id="toDate">
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label">Report Type <span class="opt">(optional)</span></label>
+                <div class="radio-row" id="reportTypeRow"></div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="outputFilename">Save results as <span
+                    class="opt">(optional)</span></label>
+                <input type="text" id="outputFilename" placeholder="Case_Search_Results.xlsx">
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg" id="runBtn">▶ Run Search</button>
+                <button type="button" class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
+              </div>
+
+              <div class="progress-wrap" hidden id="progressWrap">
+                <div class="progress-bar">
+                  <div class="progress-bar__fill" id="progressFill"></div>
+                </div>
+                <p class="progress-label" id="progressLabel">Ready</p>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- ===================== Activity log ===================== -->
+        <section class="card log-card">
+          <div class="card-header">
+            <h2>Activity Log</h2>
+            <button class="btn btn-ghost btn-sm" id="clearLogBtn"><i data-lucide="trash-2"></i>Clear</button>
+          </div>
+          <div class="log-box" id="logBox"></div>
+        </section>
+
+        <!-- ===================== Results ===================== -->
+        <section class="card results-card" id="resultsCard" hidden>
+          <div class="card-header">
+            <h2>Results</h2>
+            <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download><i data-lucide="download"></i>Download
+              Excel</a>
+          </div>
+          <p class="results-summary" id="resultsSummary"></p>
+
+          <div class="results-shell">
+
+            <!-- Filters sidebar -->
+            <aside class="filters-panel">
+              <div class="filters-panel__header">
+                <h3>Filters</h3>
+                <button class="link-btn" id="clearFiltersBtn">Clear all</button>
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Search within results</label>
+                <div class="input-icon-wrap">
+                  <i data-lucide="search"></i>
+                  <input type="text" id="filterSearch" placeholder="Search parties, case no...">
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Case Type</label>
+                <div class="checkbox-list" id="filterCaseType"></div>
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Case Year</label>
+                <div class="checkbox-list" id="filterCaseYear"></div>
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Content</label>
+                <div class="checkbox-list">
+                  <label class="checkbox-row">
+                    <input type="checkbox" id="filterHasJudgment">
+                    Has Judgment Information
+                  </label>
+                  <label class="checkbox-row">
+                    <input type="checkbox" id="filterHasOrders">
+                    Has Daily Orders
+                  </label>
+                </div>
+              </div>
+            </aside>
+
+            <!-- Results main column -->
+            <div class="results-main">
+              <div class="results-toolbar">
+                <div class="active-chips" id="activeChips"></div>
+                <div class="sort-control">
+                  <label class="field-label-sm" for="sortSelect">Sort by</label>
+                  <select id="sortSelect">
+                    <option value="year_desc">Case Year (newest first)</option>
+                    <option value="year_asc">Case Year (oldest first)</option>
+                    <option value="case_no_asc">Case No (low to high)</option>
+                    <option value="case_no_desc">Case No (high to low)</option>
+                    <option value="petitioner_az">Petitioner (A–Z)</option>
+                    <option value="most_data">Most detail first</option>
+                  </select>
+                </div>
+              </div>
+
+              <p class="results-count" id="filteredCount"></p>
+              <div id="resultsList" class="results-list"></div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

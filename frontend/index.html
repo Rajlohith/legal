@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karnataka Judiciary Case Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
+            Search</span></a>
+        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="sidebar__nav">
+        <a href="index.html" class="sidebar__link sidebar__link--active" title="Home"><i data-lucide="home"></i><span
+            class="label">Home</span></a>
+        <a href="search.html" class="sidebar__link" title="Detailed Search"><i data-lucide="search"></i><span
+            class="label">Detailed Search</span></a>
+        <a href="case-number.html" class="sidebar__link" title="Quick Search"><i data-lucide="zap"></i><span
+            class="label">Quick Search</span></a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="page-header">
+        <h1><i data-lucide="message-circle"></i> Assistant</h1>
+        <p>Ask me anything, or describe the case you're trying to find.</p>
+      </header>
+
+      <main class="content chat-page">
+        <div class="chat-window">
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg chat-msg--bot">
+              <div class="chat-msg__bubble">Hi! I'm your case search assistant. Tell me what you're looking for, or use
+                <strong>Detailed Search</strong> / <strong>Quick Search</strong> in the sidebar to run a search
+                directly.</div>
+            </div>
+          </div>
+          <form class="chat-input-row" id="chatForm">
+            <textarea id="chatInput" rows="1" placeholder="Type a message…"></textarea>
+            <button type="submit" class="btn btn-primary chat-send-btn" id="chatSendBtn" aria-label="Send">
+              <i data-lucide="send"></i>
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script src="chat.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+
+</html>
