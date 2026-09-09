@@ -25,7 +25,17 @@ from config import CASE_TYPES, CASE_YEARS
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "gemini").strip().lower()
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+
+# Gemini can sometimes take longer than the default 30-second timeout.
+GEMINI_TIMEOUT = httpx.Timeout(
+    connect=10.0,
+    read=120.0,
+    write=30.0,
+    pool=10.0,
+)
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
@@ -101,8 +111,13 @@ async def _call_gemini(prompt):
         "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(url, json=payload)
+    try:
+        async with httpx.AsyncClient(timeout=GEMINI_TIMEOUT) as client:
+            resp = await client.post(url, json=payload)
+    except httpx.TimeoutException as e:
+        raise AiFillError(
+            "Gemini took too long to respond. Please try again."
+        ) from e
 
     if resp.status_code != 200:
         raise AiFillError(f"Gemini API error {resp.status_code}: {resp.text[:500]}")
@@ -171,8 +186,13 @@ async def _call_gemini_chat(messages):
         "generationConfig": {"temperature": 0.4},
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(url, json=payload)
+    try:
+        async with httpx.AsyncClient(timeout=GEMINI_TIMEOUT) as client:
+            resp = await client.post(url, json=payload)
+    except httpx.TimeoutException as e:
+        raise AiFillError(
+            "Gemini took too long to respond. Please try again."
+        ) from e
 
     if resp.status_code != 200:
         raise AiFillError(f"Gemini API error {resp.status_code}: {resp.text[:500]}")

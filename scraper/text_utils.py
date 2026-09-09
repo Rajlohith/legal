@@ -8,11 +8,23 @@ import re
 
 from config import NO_DATA_MARKERS
 
+# ASCII control characters that are illegal in Excel/XML cell values.
+# Tabs (\x09), newlines (\x0a), and carriage returns (\x0d) are kept
+# because Excel handles them; everything else in \x00-\x1f is stripped.
+_ILLEGAL_XLSX_CHARS_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
 
 def clean_text(text):
-    """Collapse whitespace, normalize 'no data' variants to empty string."""
+    """Collapse whitespace, normalize 'no data' variants to empty string.
+
+    Also strips ASCII control characters that are illegal in Excel/XML
+    cell values before performing whitespace normalization.
+    """
     if text is None:
         return ""
+
+    # Remove Excel-illegal control characters first.
+    text = _ILLEGAL_XLSX_CHARS_RE.sub("", text)
 
     normalized = " ".join(text.split())
 

@@ -1,9 +1,27 @@
 """Writing the combined Summary + one-sheet-per-case workbook."""
 
+import re
+
 import pandas as pd
 
 from config import SECTION_ORDER, DETAILS_COLUMN
 from scraper.text_utils import sanitize_sheet_name, split_party_names
+
+# Defense-in-depth: strip Excel-illegal control characters immediately
+# before any value enters a DataFrame or openpyxl cell, catching strings
+# that may have bypassed clean_text() (e.g. raw base_row values).
+_ILLEGAL_XLSX_CHARS_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
+
+def _excel_safe(value):
+    """Remove Excel/XML-illegal control characters from string values.
+
+    Non-string values (int, float, None, …) are returned unchanged so
+    that openpyxl can still write them natively.
+    """
+    if isinstance(value, str):
+        return _ILLEGAL_XLSX_CHARS_RE.sub("", value)
+    return value
 
 
 def case_sheet_name(base_row, used_names):
@@ -41,11 +59,11 @@ def write_combined_workbook(filename, cases):
             summary_rows.append(
                 {
                     "SlNo": len(summary_rows) + 1,
-                    "Case Type": base_row.get("Case Type", ""),
-                    "Case No": base_row.get("Case No", ""),
-                    "Year": base_row.get("Case Year", ""),
-                    "Petitioner": petitioner,
-                    "Respondent": respondent,
+                    "Case Type": _excel_safe(base_row.get("Case Type", "")),
+                    "Case No": _excel_safe(base_row.get("Case No", "")),
+                    "Year": _excel_safe(base_row.get("Case Year", "")),
+                    "Petitioner": _excel_safe(petitioner),
+                    "Respondent": _excel_safe(respondent),
                 }
             )
 
@@ -58,11 +76,11 @@ def write_combined_workbook(filename, cases):
         for case in cases:
             base_row = case["base_row"]
             sheet_name = case_sheet_name(base_row, used_sheet_names)
-            detail_rows = [{"Section": "Case Information", DETAILS_COLUMN: case["case_info_text"]}]
+            detail_rows = [{"Section": "Case Information", DETAILS_COLUMN: _excel_safe(case["case_info_text"])}]
             detail_rows.extend(
                 {
-                    "Section": section_name,
-                    DETAILS_COLUMN: case["sections_data"].get(section_name, ""),
+                    "Section": _excel_safe(section_name),
+                    DETAILS_COLUMN: _excel_safe(case["sections_data"].get(section_name, "")),
                 }
                 for _section_id, section_name in SECTION_ORDER
             )
