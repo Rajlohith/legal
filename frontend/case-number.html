@@ -1,97 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Case Number Search — Karnataka Judiciary Case Search</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Search — Karnataka Judiciary Case Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
+
 <body>
 
-<header class="topbar">
-  <div class="topbar__title">
-    <a class="topbar__back" href="index.html">← All search options</a>
-    <h1>Case Number Search</h1>
-    <p>Karnataka Judiciary — "Quick Search by Case No." lookup</p>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
+            Search</span></a>
+        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="sidebar__nav">
+        <a href="index.html" class="sidebar__link" title="Home"><i data-lucide="home"></i><span
+            class="label">Home</span></a>
+        <a href="search.html" class="sidebar__link" title="Detailed Search"><i data-lucide="search"></i><span
+            class="label">Detailed Search</span></a>
+        <a href="case-number.html" class="sidebar__link sidebar__link--active" title="Quick Search"><i
+            data-lucide="zap"></i><span class="label">Quick Search</span></a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+
+      <header class="topbar">
+        <div class="topbar__title">
+          <h1><i data-lucide="zap"></i> Quick Search</h1>
+          <p>Karnataka Judiciary — "Quick Search by Case No." lookup</p>
+        </div>
+        <div class="topbar__status" id="connStatus">
+          <span class="dot" id="connDot"></span>
+          <span id="connLabel">Connecting…</span>
+        </div>
+      </header>
+
+      <main class="layout">
+
+        <!-- ===================== Search card ===================== -->
+        <section class="card search-card">
+
+          <div class="tab-panel" id="panelManual">
+            <p class="hint">This mirrors the site's own Quick Search by Case No. page: no dates, no judge, no party
+              names — just the exact case. The CAPTCHA is solved automatically, the same way it is on Detailed Search.
+            </p>
+
+            <form id="caseNumberForm">
+
+              <div class="field-group">
+                <label class="field-label" for="dbBench">Select Bench <span class="req">*</span></label>
+                <select id="dbBench" required>
+                  <option value="">-- Select --</option>
+                </select>
+              </div>
+
+              <div class="grid-3">
+                <div class="field-group">
+                  <label class="field-label" for="caseType">Case Type <span class="req">*</span></label>
+                  <select id="caseType" required></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="caseNo">Case Number <span class="req">*</span></label>
+                  <input type="text" id="caseNo" maxlength="6" inputmode="numeric" placeholder="e.g. 48907" required>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="caseYear">Case Year <span class="req">*</span></label>
+                  <select id="caseYear" required></select>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="outputFilename">Save results as <span
+                    class="opt">(optional)</span></label>
+                <input type="text" id="outputFilename" placeholder="Case_Search_Results.xlsx">
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg" id="runBtn">▶ Run Search</button>
+                <button type="button" class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
+              </div>
+
+              <div class="progress-wrap" hidden id="progressWrap">
+                <div class="progress-bar">
+                  <div class="progress-bar__fill" id="progressFill"></div>
+                </div>
+                <p class="progress-label" id="progressLabel">Ready</p>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- ===================== Activity log ===================== -->
+        <section class="card log-card">
+          <div class="card-header">
+            <h2>Activity Log</h2>
+            <button class="btn btn-ghost btn-sm" id="clearLogBtn"><i data-lucide="trash-2"></i>Clear</button>
+          </div>
+          <div class="log-box" id="logBox"></div>
+        </section>
+
+        <!-- ===================== Results ===================== -->
+        <section class="card results-card" id="resultsCard" hidden>
+          <div class="card-header">
+            <h2>Results</h2>
+            <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download><i data-lucide="download"></i>Download
+              Excel</a>
+          </div>
+          <p class="results-summary" id="resultsSummary"></p>
+          <div id="resultsList" class="results-list"></div>
+        </section>
+
+      </main>
+
+    </div>
   </div>
-  <div class="topbar__status" id="connStatus">
-    <span class="dot" id="connDot"></span>
-    <span id="connLabel">Connecting…</span>
-  </div>
-</header>
 
-<main class="layout">
-
-  <!-- ===================== Search card ===================== -->
-  <section class="card search-card">
-
-    <div class="tab-panel" id="panelManual">
-      <p class="hint">This mirrors the site's own Quick Search by Case No. page: no dates, no judge, no party
-        names — just the exact case. The CAPTCHA is solved automatically, the same way it is on Detailed Search.</p>
-
-      <form id="caseNumberForm">
-
-        <div class="field-group">
-          <label class="field-label" for="dbBench">Select Bench <span class="req">*</span></label>
-          <select id="dbBench" required>
-            <option value="">-- Select --</option>
-          </select>
-        </div>
-
-        <div class="grid-3">
-          <div class="field-group">
-            <label class="field-label" for="caseType">Case Type <span class="req">*</span></label>
-            <select id="caseType" required></select>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="caseNo">Case Number <span class="req">*</span></label>
-            <input type="text" id="caseNo" maxlength="6" inputmode="numeric" placeholder="e.g. 48907" required>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="caseYear">Case Year <span class="req">*</span></label>
-            <select id="caseYear" required></select>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label class="field-label" for="outputFilename">Save results as <span class="opt">(optional)</span></label>
-          <input type="text" id="outputFilename" placeholder="Case_Search_Results.xlsx">
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-lg" id="runBtn">▶ Run Search</button>
-          <button type="button" class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
-        </div>
-
-        <div class="progress-wrap" hidden id="progressWrap">
-          <div class="progress-bar"><div class="progress-bar__fill" id="progressFill"></div></div>
-          <p class="progress-label" id="progressLabel">Ready</p>
-        </div>
-      </form>
-    </div>
-  </section>
-
-  <!-- ===================== Activity log ===================== -->
-  <section class="card log-card">
-    <div class="card-header">
-      <h2>Activity Log</h2>
-      <button class="btn btn-ghost btn-sm" id="clearLogBtn">Clear</button>
-    </div>
-    <div class="log-box" id="logBox"></div>
-  </section>
-
-  <!-- ===================== Results ===================== -->
-  <section class="card results-card" id="resultsCard" hidden>
-    <div class="card-header">
-      <h2>Results</h2>
-      <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download>⬇ Download Excel</a>
-    </div>
-    <p class="results-summary" id="resultsSummary"></p>
-    <div id="resultsList" class="results-list"></div>
-  </section>
-
-</main>
-
-<script src="case-number.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="case-number.js"></script>
 </body>
+
 </html>

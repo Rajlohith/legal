@@ -13,6 +13,17 @@ class AiFillResponse(BaseModel):
     fields: dict
     notes: Optional[str] = None
 
+class ChatMessage(BaseModel):
+    role: str = Field(..., description='"user" or "assistant"')
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage] = Field(..., description="Full conversation so far, oldest first")
+
+
+class ChatResponse(BaseModel):
+    reply: str
 
 class JudgeLookupRequest(BaseModel):
     db_bench: str = Field(..., description='"B" | "D" | "K"')

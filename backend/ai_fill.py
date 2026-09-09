@@ -142,6 +142,91 @@ async def _call_openai_compatible(prompt):
         raise AiFillError(f"Unexpected chat-completions response shape: {data}")
 
 
+CHAT_SYSTEM_PROMPT = (
+    "You are the assistant embedded in the Karnataka Judiciary Case Search "
+    "tool. Be concise and helpful. You cannot run searches yourself -- if "
+    "the person wants to actually find a case, point them to 'Detailed "
+    "Search' (for broad/exploratory searches, judge, party names, date "
+    "ranges, multiple aliases) or 'Quick Search' (when they already know "
+    "the exact Bench, Case Type, Case Number and Case Year) in the sidebar. "
+    "You can also help them think through what to type into those forms."
+)
+
+
+async def _call_gemini_chat(messages):
+    if not GEMINI_API_KEY:
+        raise AiFillError("GEMINI_API_KEY is not set. Add it to your .env file.")
+
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
+    contents = [
+        {"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
+        for m in messages
+    ]
+    payload = {
+        "contents": contents,
+        "systemInstruction": {"parts": [{"text": CHAT_SYSTEM_PROMPT}]},
+        "generationConfig": {"temperature": 0.4},
+    }
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(url, json=payload)
+
+    if resp.status_code != 200:
+        raise AiFillError(f"Gemini API error {resp.status_code}: {resp.text[:500]}")
+
+    data = resp.json()
+    try:
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError):
+        raise AiFillError(f"Unexpected Gemini response shape: {data}")
+
+
+async def _call_openai_compatible_chat(messages):
+    if not OPENAI_API_KEY:
+        raise AiFillError("OPENAI_API_KEY is not set. Add it to your .env file.")
+
+    url = f"{OPENAI_BASE_URL}/chat/completions"
+    payload = {
+        "model": OPENAI_MODEL,
+        "messages": [{"role": "system", "content": CHAT_SYSTEM_PROMPT}] + list(messages),
+        "temperature": 0.4,
+    }
+    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+
+    if resp.status_code != 200:
+        raise AiFillError(f"LLM API error {resp.status_code}: {resp.text[:500]}")
+
+    data = resp.json()
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError):
+        raise AiFillError(f"Unexpected chat-completions response shape: {data}")
+
+
+async def chat_reply(messages):
+    """
+    messages: list of {"role": "user"|"assistant", "content": str}, oldest first.
+    Returns the assistant's reply text. Raises AiFillError on any
+    configuration or upstream problem.
+    """
+    if LLM_PROVIDER == "gemini":
+        raw = await _call_gemini_chat(messages)
+    elif LLM_PROVIDER in ("openai", "openai_compatible"):
+        raw = await _call_openai_compatible_chat(messages)
+    else:
+        raise AiFillError(
+            f"Unknown LLM_PROVIDER '{LLM_PROVIDER}'. Set it to 'gemini' or 'openai' in your .env file."
+        )
+
+    return raw.strip()
+
+
 async def ai_fill_form(nl_text):
     """
     Returns (fields: dict, notes: str | None).

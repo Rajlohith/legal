@@ -33,12 +33,14 @@ from fastapi.staticfiles import StaticFiles
 from config import BENCH_OPTIONS, CASE_TYPES, CASE_YEARS, CORAM_OPTIONS, REPORT_TYPE_OPTIONS
 from scraper.judge_lookup import fetch_judge_options
 
-from backend.ai_fill import AiFillError, ai_fill_form
+from backend.ai_fill import AiFillError, ai_fill_form, chat_reply
 from backend.job_manager import OUTPUT_DIR, job_manager
 from backend.schemas import (
     AiFillRequest,
     AiFillResponse,
     CaseNumberSearchCriteria,
+    ChatRequest,
+    ChatResponse,
     JudgeLookupRequest,
     SearchCriteria,
     SearchStartResponse,
@@ -111,6 +113,21 @@ async def ai_fill(request: AiFillRequest):
         return AiFillResponse(fields={}, notes=str(e))
 
     return AiFillResponse(fields=fields, notes=notes)
+
+
+# ----------------------------------------------------------------------
+# Homepage chatbot
+# ----------------------------------------------------------------------
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    try:
+        reply = await chat_reply([m.model_dump() for m in request.messages])
+    except AiFillError as e:
+        return ChatResponse(reply=f"Sorry, I couldn't reach the AI assistant: {e}")
+
+    return ChatResponse(reply=reply)
 
 
 # ----------------------------------------------------------------------

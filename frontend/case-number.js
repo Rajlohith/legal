@@ -183,7 +183,7 @@ function renderResults(cases) {
         <div class="case-card__title">${escapeHtml(c.case_type)} ${escapeHtml(c.case_no)}/${escapeHtml(c.case_year)}</div>
         <div class="case-card__subtitle">${escapeHtml(c.petitioner)} v/s ${escapeHtml(c.respondent)}</div>
       </div>
-      <div class="case-card__chevron">▸</div>
+      <div class="case-card__chevron"><i data-lucide="chevron-right"></i></div>
     `;
     header.addEventListener("click", () => card.classList.toggle("open"));
 
@@ -206,9 +206,10 @@ function renderResults(cases) {
     container.appendChild(card);
   });
 
-  if (!cases.length) {
+  lucide.createIcons(); if (!cases.length) {
     container.innerHTML = '<p class="hint">No case matched that Case Type / Number / Year.</p>';
   }
+  lucide.createIcons();
 }
 
 function sectionItem(title, text) {
@@ -217,7 +218,7 @@ function sectionItem(title, text) {
 
   const header = document.createElement("div");
   header.className = "section-item__header";
-  header.innerHTML = `<span>${escapeHtml(title)}</span><span>+</span>`;
+  header.innerHTML = `<span>${escapeHtml(title)}</span><span class="section-item__chevron"><i data-lucide="chevron-right"></i></span>`;
   header.addEventListener("click", () => item.classList.toggle("open"));
 
   const body = document.createElement("div");
@@ -239,5 +240,17 @@ function escapeHtml(value) {
 // Init
 // ------------------------------------------------------------------
 
+lucide.createIcons();
 loadFormOptions();
 connectWs();
+
+// Log card folding
+const logCardHeader = document.getElementById('logCardHeader');
+const logCard = document.getElementById('logCard');
+if (logCardHeader && logCard) {
+  logCardHeader.addEventListener('click', (e) => {
+    // Avoid toggling when clicking the clear button
+    if (e.target.closest('#clearLogBtn')) return;
+    logCard.classList.toggle('open');
+  });
+}

@@ -139,8 +139,11 @@ class JobManager:
         def on_progress(done, total):
             self._broadcast("progress", {"done": done, "total": total})
 
+        def on_row_progress(done, total, label):
+            self._broadcast("case_progress", {"done": done, "total": total, "label": label})
+
         self._engine = SearchEngine(
-            log=log, on_progress=on_progress, tesseract_cmd=tesseract_cmd, headless=headless,
+            log=log, on_progress=on_progress, on_row_progress=on_row_progress, tesseract_cmd=tesseract_cmd, headless=headless,
         )
 
         from_date = parse_user_date(criteria["from_date"]) if criteria.get("from_date") else None

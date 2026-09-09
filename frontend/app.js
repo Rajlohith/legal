@@ -225,6 +225,16 @@ function handleWsMessage(msg) {
     const pct = total ? Math.round((done / total) * 100) : 0;
     $("progressFill").style.width = pct + "%";
     $("progressLabel").textContent = `Processed ${done} of ${total} search job(s)…`;
+  } else if (msg.type === "case_progress") {
+    // Fires per case row within the current job, so a single large job
+    // (hundreds of rows) still shows live movement instead of sitting on
+    // "Starting…" until the whole job finishes.
+    const { done, total, label } = msg.payload;
+    $("progressWrap").hidden = false;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    $("progressFill").style.width = pct + "%";
+    $("progressLabel").textContent =
+      `Extracting case ${done} of ${total}` + (label ? ` for '${label}'` : "") + "…";
   } else if (msg.type === "done") {
     onSearchDone(msg.payload);
   } else if (msg.type === "error") {
@@ -319,8 +329,18 @@ $("stopBtn").addEventListener("click", async () => {
 });
 
 // ------------------------------------------------------------------
-// Results rendering
+// Results rendering + filters/sort
 // ------------------------------------------------------------------
+
+let allCases = [];
+const filterState = {
+  search: "",
+  caseTypes: new Set(),
+  caseYears: new Set(),
+  hasJudgment: false,
+  hasOrders: false,
+};
+let sortMode = "year_desc";
 
 function onSearchDone(payload) {
   setRunning(false);
@@ -335,9 +355,199 @@ function onSearchDone(payload) {
   $("resultsSummary").textContent =
     `${payload.case_count} unique case(s) found, ${payload.duplicates_skipped} duplicate(s) skipped.`;
 
-  renderResults(payload.cases || []);
+  allCases = (payload.cases || []).map((c) => ({
+    ...c,
+    _sectionCount: sectionCount(c),
+  }));
+
+  filterState.search = "";
+  filterState.caseTypes.clear();
+  filterState.caseYears.clear();
+  filterState.hasJudgment = false;
+  filterState.hasOrders = false;
+  sortMode = "year_desc";
+  $("filterSearch").value = "";
+  $("filterHasJudgment").checked = false;
+  $("filterHasOrders").checked = false;
+  $("sortSelect").value = sortMode;
+
+  buildFilterOptions(allCases);
+  renderFilteredResults();
+
   $("resultsCard").hidden = false;
   $("resultsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function sectionCount(c) {
+  let count = c.case_information ? 1 : 0;
+  count += Object.keys(c.sections || {}).length;
+  return count;
+}
+
+const TOTAL_POSSIBLE_SECTIONS = 18; // Case Information + the 17 expandable sections
+
+// ---- Build filter checkboxes from the actual result set (not a fixed
+// list) so options always match what's genuinely in these results ----
+
+function buildFilterOptions(cases) {
+  const typeCounts = new Map();
+  const yearCounts = new Map();
+
+  cases.forEach((c) => {
+    const type = c.case_type || "Unknown";
+    const year = c.case_year || "Unknown";
+    typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+    yearCounts.set(year, (yearCounts.get(year) || 0) + 1);
+  });
+
+  renderCheckboxGroup(
+    $("filterCaseType"),
+    [...typeCounts.entries()].sort((a, b) => b[1] - a[1]),
+    filterState.caseTypes,
+    onFilterChange
+  );
+  renderCheckboxGroup(
+    $("filterCaseYear"),
+    [...yearCounts.entries()].sort((a, b) => String(b[0]).localeCompare(String(a[0]))),
+    filterState.caseYears,
+    onFilterChange
+  );
+}
+
+function renderCheckboxGroup(container, entries, stateSet, onChange) {
+  container.innerHTML = "";
+  entries.forEach(([value, count]) => {
+    const label = document.createElement("label");
+    label.className = "checkbox-row";
+    label.innerHTML = `
+      <input type="checkbox" ${stateSet.has(value) ? "checked" : ""}>
+      <span>${escapeHtml(value)}</span>
+      <span class="count">${count}</span>
+    `;
+    label.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) stateSet.add(value);
+      else stateSet.delete(value);
+      onChange();
+    });
+    container.appendChild(label);
+  });
+  if (!entries.length) {
+    container.innerHTML = '<p class="hint" style="margin:0;">None</p>';
+  }
+}
+
+// ---- Wire up the non-dynamic controls once ----
+
+$("filterSearch").addEventListener("input", (e) => {
+  filterState.search = e.target.value.trim().toLowerCase();
+  renderFilteredResults();
+});
+$("filterHasJudgment").addEventListener("change", (e) => {
+  filterState.hasJudgment = e.target.checked;
+  renderFilteredResults();
+});
+$("filterHasOrders").addEventListener("change", (e) => {
+  filterState.hasOrders = e.target.checked;
+  renderFilteredResults();
+});
+$("sortSelect").addEventListener("change", (e) => {
+  sortMode = e.target.value;
+  renderFilteredResults();
+});
+$("clearFiltersBtn").addEventListener("click", () => {
+  filterState.search = "";
+  filterState.caseTypes.clear();
+  filterState.caseYears.clear();
+  filterState.hasJudgment = false;
+  filterState.hasOrders = false;
+  $("filterSearch").value = "";
+  $("filterHasJudgment").checked = false;
+  $("filterHasOrders").checked = false;
+  buildFilterOptions(allCases);
+  renderFilteredResults();
+});
+
+function onFilterChange() {
+  renderFilteredResults();
+}
+
+// ---- Apply filters + sort, then render ----
+
+function renderFilteredResults() {
+  let cases = allCases.filter((c) => {
+    if (filterState.caseTypes.size && !filterState.caseTypes.has(c.case_type || "Unknown")) {
+      return false;
+    }
+    if (filterState.caseYears.size && !filterState.caseYears.has(c.case_year || "Unknown")) {
+      return false;
+    }
+    if (filterState.hasJudgment && !(c.sections || {})["Judgment Information"]) {
+      return false;
+    }
+    if (filterState.hasOrders && !(c.sections || {})["Daily Orders Information"]) {
+      return false;
+    }
+    if (filterState.search) {
+      const haystack = [
+        c.case_type, c.case_no, c.case_year, c.petitioner, c.respondent,
+      ].join(" ").toLowerCase();
+      if (!haystack.includes(filterState.search)) return false;
+    }
+    return true;
+  });
+
+  cases = sortCases(cases, sortMode);
+
+  renderActiveChips();
+  $("filteredCount").textContent = `Showing ${cases.length} of ${allCases.length} case(s)`;
+  renderResults(cases);
+  lucide.createIcons();
+}
+
+function sortCases(cases, mode) {
+  const copy = [...cases];
+  const byYear = (c) => parseInt(c.case_year, 10) || 0;
+  const byCaseNo = (c) => parseInt(c.case_no, 10) || 0;
+
+  switch (mode) {
+    case "year_asc":
+      return copy.sort((a, b) => byYear(a) - byYear(b));
+    case "case_no_asc":
+      return copy.sort((a, b) => byCaseNo(a) - byCaseNo(b));
+    case "case_no_desc":
+      return copy.sort((a, b) => byCaseNo(b) - byCaseNo(a));
+    case "petitioner_az":
+      return copy.sort((a, b) => (a.petitioner || "").localeCompare(b.petitioner || ""));
+    case "most_data":
+      return copy.sort((a, b) => b._sectionCount - a._sectionCount);
+    case "year_desc":
+    default:
+      return copy.sort((a, b) => byYear(b) - byYear(a));
+  }
+}
+
+function renderActiveChips() {
+  const container = $("activeChips");
+  container.innerHTML = "";
+  const chips = [];
+
+  filterState.caseTypes.forEach((v) => chips.push({ label: `Type: ${v}`, clear: () => filterState.caseTypes.delete(v) }));
+  filterState.caseYears.forEach((v) => chips.push({ label: `Year: ${v}`, clear: () => filterState.caseYears.delete(v) }));
+  if (filterState.hasJudgment) chips.push({ label: "Has Judgment", clear: () => { filterState.hasJudgment = false; $("filterHasJudgment").checked = false; } });
+  if (filterState.hasOrders) chips.push({ label: "Has Daily Orders", clear: () => { filterState.hasOrders = false; $("filterHasOrders").checked = false; } });
+  if (filterState.search) chips.push({ label: `"${filterState.search}"`, clear: () => { filterState.search = ""; $("filterSearch").value = ""; } });
+
+  chips.forEach((chip) => {
+    const el = document.createElement("span");
+    el.className = "chip";
+    el.innerHTML = `${escapeHtml(chip.label)} <button type="button"><i data-lucide="x"></i></button>`;
+    el.querySelector("button").addEventListener("click", () => {
+      chip.clear();
+      buildFilterOptions(allCases);
+      renderFilteredResults();
+    });
+    container.appendChild(el);
+  });
 }
 
 function renderResults(cases) {
@@ -354,8 +564,9 @@ function renderResults(cases) {
       <div>
         <div class="case-card__title">${escapeHtml(c.case_type)} ${escapeHtml(c.case_no)}/${escapeHtml(c.case_year)}</div>
         <div class="case-card__subtitle">${escapeHtml(c.petitioner)} v/s ${escapeHtml(c.respondent)}</div>
+        <span class="case-card__badge">${c._sectionCount}/${TOTAL_POSSIBLE_SECTIONS} sections have data</span>
       </div>
-      <div class="case-card__chevron">▸</div>
+      <div class="case-card__chevron"><i data-lucide="chevron-right"></i></div>
     `;
     header.addEventListener("click", () => card.classList.toggle("open"));
 
@@ -378,8 +589,8 @@ function renderResults(cases) {
     container.appendChild(card);
   });
 
-  if (!cases.length) {
-    container.innerHTML = '<p class="hint">No cases matched this search.</p>';
+  lucide.createIcons(); if (!cases.length) {
+    container.innerHTML = '<p class="hint">No cases match the current filters.</p>';
   }
 }
 
@@ -389,7 +600,7 @@ function sectionItem(title, text) {
 
   const header = document.createElement("div");
   header.className = "section-item__header";
-  header.innerHTML = `<span>${escapeHtml(title)}</span><span>+</span>`;
+  header.innerHTML = `<span>${escapeHtml(title)}</span><span class="section-item__chevron"><i data-lucide="chevron-right"></i></span>`;
   header.addEventListener("click", () => item.classList.toggle("open"));
 
   const body = document.createElement("div");
@@ -411,5 +622,17 @@ function escapeHtml(value) {
 // Init
 // ------------------------------------------------------------------
 
+lucide.createIcons();
 loadFormOptions();
 connectWs();
+
+// Log card folding
+const logCardHeader = document.getElementById('logCardHeader');
+const logCard = document.getElementById('logCard');
+if (logCardHeader && logCard) {
+  logCardHeader.addEventListener('click', (e) => {
+    // Avoid toggling when clicking the clear button
+    if (e.target.closest('#clearLogBtn')) return;
+    logCard.classList.toggle('open');
+  });
+}

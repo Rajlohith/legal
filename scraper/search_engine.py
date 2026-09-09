@@ -33,15 +33,23 @@ class SearchCancelled(Exception):
 
 
 class SearchEngine:
-    def __init__(self, log=print, on_progress=None, tesseract_cmd=None, headless=False):
+    def __init__(self, log=print, on_progress=None, on_row_progress=None,tesseract_cmd=None, headless=False):
         """
-        log(str)                -- called with human-readable status lines
-        on_progress(done, total)-- called as case rows are processed
-        tesseract_cmd            -- path to tesseract.exe/binary, or None for default
-        headless                 -- run the browser without a visible window
-        """
+    log(str)                -- called with human-readable status lines
+    on_progress(done, total)-- called once per finished search job
+                                (one job = one alias x one date window)
+    on_row_progress(done, total, label)
+                             -- called as each individual case row within
+                                the *current* job is processed, so a long
+                                single job (hundreds of rows) still gives
+                                live feedback instead of going quiet
+                                until the whole job finishes
+    tesseract_cmd            -- path to tesseract.exe/binary, or None for default
+    headless                 -- run the browser without a visible window
+    """
         self.log = log
         self.on_progress = on_progress or (lambda done, total: None)
+        self.on_row_progress = on_row_progress or (lambda done, total, label: None)
         self.tesseract_cmd = tesseract_cmd
         self.headless = headless
         self._stop_requested = False
@@ -235,6 +243,7 @@ class SearchEngine:
 
         for i in range(row_count):
             self._check_stop()
+            self.on_row_progress(i + 1, row_count, job_label)
 
             target_table = find_judgments_table(results)
             case_row_el = target_table.locator("tbody tr").nth(i)
