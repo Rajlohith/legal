@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide — Karnataka Judiciary Case Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* ---- Guide page styles ---- */
+    .guide-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .guide-block__header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #FBFAF6;
+    }
+
+    .guide-block__header .lucide {
+      width: 18px;
+      height: 18px;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin: 0;
+    }
+
+    .guide-block__header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: var(--font-heading);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .guide-block__header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .guide-steps {
+      counter-reset: step-counter;
+      padding: 22px 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .guide-step {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .guide-step:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .guide-step__num {
+      counter-increment: step-counter;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #EDF0F7;
+      border: 1px solid #D0D5E2;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .guide-step__content {
+      padding-top: 4px;
+    }
+
+    .guide-step__title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 4px;
+    }
+
+    .guide-step__desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .guide-step__desc strong {
+      color: var(--text);
+    }
+
+    .guide-step__desc a {
+      color: var(--accent);
+    }
+
+    .guide-tip {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #EEEBE0;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .guide-tip .lucide {
+      width: 14px;
+      height: 14px;
+      color: var(--gold);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Collapsible guide blocks */
+    .guide-block__header {
+      cursor: pointer;
+      user-select: none;
+      justify-content: space-between;
+    }
+    .guide-block__header:hover {
+      background: #F0EEE4;
+    }
+    .guide-block__header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .guide-block__chevron {
+      transition: transform 0.2s;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+    }
+    .guide-block__chevron .lucide {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      color: var(--text-muted);
+    }
+    .guide-block.collapsed .guide-block__chevron {
+      transform: rotate(-90deg);
+    }
+    .guide-block.collapsed .guide-steps {
+      display: none;
+    }
+    .guide-block.collapsed {
+      border-bottom: none;
+    }
+    .guide-block__header-text { flex: 1; }
+  </style>
+</head>
+
+<body>
+
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
+            Search</span></a>
+        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="sidebar__nav">
+        <div class="sidebar__group-label"><span class="label">Tools</span></div>
+        <a href="assistant.html" class="sidebar__link" title="AI Assistant"><i data-lucide="message-circle"></i><span
+            class="label">AI Assistant</span></a>
+        <a href="search.html" class="sidebar__link" title="Detailed Search"><i data-lucide="search"></i><span
+            class="label">Detailed Search</span></a>
+        <a href="case-number.html" class="sidebar__link" title="Quick Search"><i data-lucide="zap"></i><span
+            class="label">Quick Search</span></a>
+        <div class="sidebar__group-label sidebar__group-label--mt"><span class="label">Help</span></div>
+        <a href="guide.html" class="sidebar__link sidebar__link--active" title="Guide"><i data-lucide="book-open"></i><span
+            class="label">Guide</span></a>
+        <a href="faq.html" class="sidebar__link" title="FAQ"><i data-lucide="help-circle"></i><span
+            class="label">FAQ</span></a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="topbar__title">
+          <h1><i data-lucide="book-open"></i> Guide</h1>
+        </div>
+      </header>
+
+      <main class="home-content">
+
+        <!-- ===================== Detailed Search ===================== -->
+        <div class="guide-block">
+          <div class="guide-block__header">
+            <div class="guide-block__header-left">
+              <i data-lucide="search"></i>
+              <div class="guide-block__header-text">
+                <h2>Detailed Search</h2>
+                <p>Filter cases by bench, judge, parties, and date range</p>
+              </div>
+            </div>
+            <span class="guide-block__chevron"><i data-lucide="chevron-down"></i></span>
+          </div>
+          <div class="guide-steps">
+
+            <div class="guide-step">
+              <div class="guide-step__num">1</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Open Detailed Search</p>
+                <p class="guide-step__desc">Click <strong>Detailed Search</strong> in the sidebar or from the home
+                  screen.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">2</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Select a Bench <span class="req" style="color:#7C2C2C">*</span></p>
+                <p class="guide-step__desc">Choose the court bench from the dropdown. This is the only required field.
+                  All other filters are optional.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">3</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Narrow by Judge or Case Type (optional)</p>
+                <p class="guide-step__desc">After selecting a bench, the <strong>Judge</strong> and
+                  <strong>Author Judge</strong> dropdowns populate. You can also filter by <strong>Coram</strong>,
+                  <strong>Case Type</strong>, <strong>Case Number</strong>, or <strong>Case Year</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">4</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Enter Party or Advocate Names (optional)</p>
+                <p class="guide-step__desc">Fill in <strong>Petitioner Name</strong>, <strong>Respondent
+                    Name</strong>, or their advocate fields to narrow results to specific parties.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">5</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Search Multiple Entities at Once (optional)</p>
+                <p class="guide-step__desc">Use the <strong>Search multiple entities</strong> box to enter several
+                  party names — one per line or comma-separated. Choose whether the names apply to the
+                  Petitioner or Respondent field. Each name is searched separately and all results are merged.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">6</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Set a Date Range</p>
+                <p class="guide-step__desc">Enter a <strong>From</strong> and <strong>To</strong> date for the order
+                  date. Required unless Case Type, Number, and Year are all filled in. Ranges longer than 90 days are
+                  automatically split and merged.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">7</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Run the Search</p>
+                <p class="guide-step__desc">Click <strong>▶ Run Search</strong>. The CAPTCHA is solved automatically.
+                  Watch the Activity Log for live progress. When done, click <strong>Download Excel</strong> to save
+                  all results.</p>
+                <div class="guide-tip">
+                  <i data-lucide="lightbulb"></i>
+                  Set a custom filename in <em>Save results as</em> before running — the downloaded file will use
+                  that name.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ===================== Quick Search ===================== -->
+        <div class="guide-block collapsed">
+          <div class="guide-block__header">
+            <div class="guide-block__header-left">
+              <i data-lucide="zap"></i>
+              <div class="guide-block__header-text">
+                <h2>Quick Search</h2>
+                <p>Look up a single case by its exact reference</p>
+              </div>
+            </div>
+            <span class="guide-block__chevron"><i data-lucide="chevron-down"></i></span>
+          </div>
+          <div class="guide-steps">
+
+            <div class="guide-step">
+              <div class="guide-step__num">1</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Open Quick Search</p>
+                <p class="guide-step__desc">Click <strong>Quick Search</strong> in the sidebar or from the home
+                  screen.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">2</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Select a Bench <span class="req" style="color:#7C2C2C">*</span></p>
+                <p class="guide-step__desc">Choose the bench where the case was filed.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">3</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Enter the Case Reference <span class="req"
+                    style="color:#7C2C2C">*</span></p>
+                <p class="guide-step__desc">Select the <strong>Case Type</strong>, enter the <strong>Case
+                    Number</strong>, and choose the <strong>Case Year</strong>. All three fields are required.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">4</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Run the Search</p>
+                <p class="guide-step__desc">Click <strong>▶ Run Search</strong>. The CAPTCHA is handled automatically
+                  and the case record is fetched directly from the court website and displayed in the Results section
+                  below.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ===================== AI Assistant ===================== -->
+        <div class="guide-block collapsed">
+          <div class="guide-block__header">
+            <div class="guide-block__header-left">
+              <i data-lucide="message-circle"></i>
+              <div class="guide-block__header-text">
+                <h2>AI Assistant</h2>
+                <p>Ask questions in plain language</p>
+              </div>
+            </div>
+            <span class="guide-block__chevron"><i data-lucide="chevron-down"></i></span>
+          </div>
+          <div class="guide-steps">
+
+            <div class="guide-step">
+              <div class="guide-step__num">1</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Open the AI Assistant</p>
+                <p class="guide-step__desc">Click <strong>AI Assistant</strong> in the sidebar or from the home
+                  screen.</p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">2</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Type Your Query</p>
+                <p class="guide-step__desc">Describe what you're looking for in plain English — for example:
+                  <em>"Find writ petitions filed by Nandeesh against the State of Karnataka in 2023"</em> or
+                  <em>"How do I search for cases from a specific judge?"</em>
+                </p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">3</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Send the Message</p>
+                <p class="guide-step__desc">Press <strong>Enter</strong> or click the send button. Use
+                  <strong>Shift + Enter</strong> to start a new line without sending.
+                </p>
+              </div>
+            </div>
+
+            <div class="guide-step">
+              <div class="guide-step__num">4</div>
+              <div class="guide-step__content">
+                <p class="guide-step__title">Follow the Guidance</p>
+                <p class="guide-step__desc">The assistant will interpret your request and guide you to the right
+                  search tool, suggest which fields to fill in, or answer general questions about how the application
+                  works. Continue the conversation naturally.</p>
+                <div class="guide-tip">
+                  <i data-lucide="lightbulb"></i>
+                  The assistant remembers your conversation for the current session. You can ask follow-up questions
+                  without repeating context.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script>
+    lucide.createIcons();
+
+    // Collapsible guide blocks
+    document.querySelectorAll('.guide-block__header').forEach(function(header) {
+      header.addEventListener('click', function() {
+        var block = header.closest('.guide-block');
+        block.classList.toggle('collapsed');
+        lucide.createIcons();
+      });
+    });
+  </script>
+</body>
+
+</html>

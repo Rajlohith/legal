@@ -73,19 +73,22 @@ h3,
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .dot {
   width: 9px;
   height: 9px;
-  border-radius: 0;
-  background: var(--danger);
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .dot.connected {
-  background: var(--success);
+  background: #16C554;
+  box-shadow: 0 0 0 3px rgba(22, 197, 84, 0.25);
 }
 
 .layout {
@@ -1236,4 +1239,576 @@ body {
 .chat-send-btn .lucide {
   width: 18px;
   height: 18px;
+}
+
+/* ==================================================================
+   Homepage: new landing layout
+   ================================================================== */
+
+/* Remove old page-header subtitle and standardise topbar subtitle */
+.topbar__title p {
+  display: none;
+}
+
+/* Tighten topbar title h1 when there is no subtitle */
+.topbar__title h1 {
+  margin: 0;
+}
+
+/* Fix layout padding to match topbar (was 24px, topbar is 28px) */
+.layout {
+  padding: 24px 28px;
+}
+
+/* ------------------------------------------------------------------
+   Home page: main content wrapper
+   ------------------------------------------------------------------ */
+
+.home-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px 28px 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------------
+   Feature navigation cards (3-up grid)
+   ------------------------------------------------------------------ */
+
+.home-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .home-feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 20px 20px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  border-radius: var(--radius);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.home-feature-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(31, 58, 95, 0.07);
+}
+
+.home-feature-card__icon {
+  width: 42px;
+  height: 42px;
+  background: #EDF0F7;
+  border: 1px solid #D0D5E2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.home-feature-card__icon .lucide {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+  margin: 0;
+  vertical-align: 0;
+}
+
+.home-feature-card h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  color: var(--text);
+}
+
+.home-feature-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------
+   Chat section on home page
+   ------------------------------------------------------------------ */
+
+.home-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.home-section-label .lucide {
+  width: 13px;
+  height: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  vertical-align: 0;
+}
+
+.home-chat-section .chat-window {
+  height: 400px;
+}
+
+.home-chat-section .chat-messages {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ------------------------------------------------------------------
+   Guide & FAQ section
+   ------------------------------------------------------------------ */
+
+.guide-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 22px 22px 6px;
+  border-radius: var(--radius);
+}
+
+.guide-section__title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-heading);
+}
+
+.guide-section__title .lucide {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  margin: 0;
+  vertical-align: 0;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-item__q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  transition: color 0.15s;
+}
+
+.faq-item__q:hover {
+  color: var(--accent);
+}
+
+.faq-chevron {
+  flex-shrink: 0;
+  width: 15px !important;
+  height: 15px !important;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+  margin: 0 !important;
+  vertical-align: 0 !important;
+}
+
+.faq-item.open .faq-chevron {
+  transform: rotate(90deg);
+}
+
+.faq-item__a {
+  display: none;
+  padding: 0 0 16px;
+  font-size: 14.5px;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.faq-item__a a {
+  color: var(--accent);
+}
+
+.faq-item__a em {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.faq-item.open .faq-item__a {
+  display: block;
+}
+
+/* ==================================================================
+   Activity Log: flush title bar (no gap, no divider line)
+   ================================================================== */
+
+.log-card__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #FBFAF6;
+  /* intentionally no margin-bottom and no border-bottom */
+}
+
+.log-card__title h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-heading);
+}
+
+/* ==================================================================
+   Sidebar: labelled nav groups (Tools / Help)
+   ================================================================== */
+
+.sidebar__group-label {
+  padding: 18px 14px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: padding 0.18s ease;
+}
+
+.sidebar__group-label--mt {
+  margin-top: 8px;
+}
+
+/* Collapsed: hide text, show only a thin divider line */
+.sidebar--collapsed .sidebar__group-label {
+  padding: 0;
+  margin: 10px 8px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  height: 0;
+  min-height: 0;
+}
+
+/* ==================================================================
+   Home page — hero section
+   ================================================================== */
+
+.home-hero {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.home-hero__badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #EDF0F7;
+  border: 1px solid #D0D5E2;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  letter-spacing: 0.02em;
+}
+
+.home-hero__badge .lucide {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  vertical-align: 0;
+}
+
+.home-hero__body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.home-hero__text {
+  flex: 1;
+  min-width: 260px;
+}
+
+.home-hero__text h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-heading);
+}
+
+.home-hero__text p {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.home-hero__sub {
+  color: var(--text-muted) !important;
+  font-size: 13.5px !important;
+}
+
+.home-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.home-hero__cta:hover {
+  background: var(--accent-dark);
+}
+
+.home-hero__cta .lucide {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  vertical-align: 0;
+}
+
+/* Tools label row */
+.home-tools-label {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.home-tools-label span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.home-tools-label .lucide {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  vertical-align: 0;
+}
+
+/* Updated feature cards — taller with description + arrow */
+.home-feature-card {
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 20px 20px;
+}
+
+.home-feature-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-feature-card h3 {
+  font-size: 16px;
+}
+
+.home-feature-card p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.home-feature-card__arrow {
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.home-feature-card:hover .home-feature-card__arrow {
+  opacity: 1;
+}
+
+.home-feature-card__arrow .lucide {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  vertical-align: 0;
+}
+
+/* ==================================================================
+   Filter panel — overlap fix + new filter groups
+   ================================================================== */
+
+.filter-group {
+  position: relative;
+  overflow: visible;
+}
+
+.input-icon-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.filters-panel .input-icon-wrap {
+  overflow: visible;
+}
+
+/* Case number range filter */
+.filter-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.filter-range input {
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+/* Petitioner / Respondent quick filters */
+.filter-text-input {
+  width: 100%;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+/* Download options row */
+.download-options {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #EDF0F7;
+}
+
+/* Clear results button in card header */
+.results-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.results-header-left h2 { margin: 0; }
+
+/* ==================================================================
+   Guide — collapsible block header updates
+   ================================================================== */
+
+.guide-block__header {
+  justify-content: space-between;
+}
+
+.guide-block__header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guide-block__header-left .lucide {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.guide-block__chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.guide-block__chevron .lucide {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.guide-block.collapsed .guide-block__chevron {
+  transform: rotate(-90deg);
+}
+
+.guide-block.collapsed .guide-steps {
+  display: none;
 }

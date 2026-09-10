@@ -1,18 +1,10 @@
 const $ = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------------
-// Tabs
+// Session storage keys for result persistence
 // ------------------------------------------------------------------
 
-$("tabManualBtn").addEventListener("click", () => switchTab("manual"));
-$("tabAiBtn").addEventListener("click", () => switchTab("ai"));
-
-function switchTab(name) {
-  $("tabManualBtn").classList.toggle("active", name === "manual");
-  $("tabAiBtn").classList.toggle("active", name === "ai");
-  $("panelManual").hidden = name !== "manual";
-  $("panelAi").hidden = name !== "ai";
-}
+const RESULTS_KEY = "detailedSearchResults";
 
 // ------------------------------------------------------------------
 // Form options (static dropdowns)
@@ -94,86 +86,7 @@ $("dbBench").addEventListener("change", async () => {
   }
 });
 
-// ------------------------------------------------------------------
-// AI fill
-// ------------------------------------------------------------------
 
-$("aiFillBtn").addEventListener("click", async () => {
-  const text = $("aiText").value.trim();
-  $("aiError").hidden = true;
-  $("aiNotes").hidden = true;
-
-  if (!text) return;
-
-  $("aiFillBtn").disabled = true;
-  $("aiFillBtn").textContent = "Thinking…";
-
-  try {
-    const res = await fetch("/api/ai-fill", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    const data = await res.json();
-
-    if (!data.fields || Object.keys(data.fields).length === 0) {
-      if (data.notes) {
-        $("aiError").hidden = false;
-        $("aiError").textContent = data.notes;
-      }
-      return;
-    }
-
-    await applyAiFields(data.fields);
-
-    if (data.notes) {
-      $("aiNotes").hidden = false;
-      $("aiNotes").textContent = "AI note: " + data.notes;
-    }
-
-    switchTab("manual");
-  } catch (e) {
-    $("aiError").hidden = false;
-    $("aiError").textContent = "Could not reach the AI service: " + e;
-  } finally {
-    $("aiFillBtn").disabled = false;
-    $("aiFillBtn").textContent = "✨ Fill form with AI";
-  }
-});
-
-async function applyAiFields(fields) {
-  if (fields.db_bench) {
-    $("dbBench").value = fields.db_bench;
-    $("dbBench").dispatchEvent(new Event("change"));
-    // give the judge dropdowns a moment; not required for AI fields today
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  if (fields.coram) $("coram").value = String(fields.coram);
-  if (fields.case_type) $("caseType").value = String(fields.case_type);
-  if (fields.case_no) $("caseNo").value = String(fields.case_no).replace(/\D/g, "");
-  if (fields.case_year) $("caseYear").value = String(fields.case_year);
-  if (fields.petitioner_name) $("petName").value = fields.petitioner_name;
-  if (fields.respondent_name) $("respName").value = fields.respondent_name;
-  if (fields.petitioner_adv) $("petAdv").value = fields.petitioner_adv;
-  if (fields.respondent_adv) $("respAdv").value = fields.respondent_adv;
-
-  if (fields.report_type) {
-    const radio = document.querySelector(
-      `input[name="reportType"][value="${fields.report_type}"]`
-    );
-    if (radio) radio.checked = true;
-  }
-
-  if (fields.from_date) $("fromDate").value = ddmmyyyyToInput(fields.from_date);
-  if (fields.to_date) $("toDate").value = ddmmyyyyToInput(fields.to_date);
-
-  if (Array.isArray(fields.aliases) && fields.aliases.length) {
-    $("aliases").value = fields.aliases.join("\n");
-  }
-  if (fields.alias_field) {
-    $("aliasField").value = fields.alias_field;
-  }
-}
 
 function ddmmyyyyToInput(value) {
   const parts = String(value).split(/[-/]/);
@@ -226,9 +139,6 @@ function handleWsMessage(msg) {
     $("progressFill").style.width = pct + "%";
     $("progressLabel").textContent = `Processed ${done} of ${total} search job(s)…`;
   } else if (msg.type === "case_progress") {
-    // Fires per case row within the current job, so a single large job
-    // (hundreds of rows) still shows live movement instead of sitting on
-    // "Starting…" until the whole job finishes.
     const { done, total, label } = msg.payload;
     $("progressWrap").hidden = false;
     const pct = total ? Math.round((done / total) * 100) : 0;
@@ -339,6 +249,10 @@ const filterState = {
   caseYears: new Set(),
   hasJudgment: false,
   hasOrders: false,
+  caseNoMin: "",
+  caseNoMax: "",
+  petitioner: "",
+  respondent: "",
 };
 let sortMode = "year_desc";
 
@@ -351,31 +265,54 @@ function onSearchDone(payload) {
 
   appendLog(`Output saved to outputs/${payload.output_filename}`);
 
-  $("downloadLink").href = `/outputs/${encodeURIComponent(payload.output_filename)}`;
-  $("resultsSummary").textContent =
-    `${payload.case_count} unique case(s) found, ${payload.duplicates_skipped} duplicate(s) skipped.`;
+  const downloadHref = `/outputs/${encodeURIComponent(payload.output_filename)}`;
+  $("downloadLink").href = downloadHref;
+  const summaryText = `${payload.case_count} unique case(s) found, ${payload.duplicates_skipped} duplicate(s) skipped.`;
+  $("resultsSummary").textContent = summaryText;
 
   allCases = (payload.cases || []).map((c) => ({
     ...c,
     _sectionCount: sectionCount(c),
   }));
 
-  filterState.search = "";
-  filterState.caseTypes.clear();
-  filterState.caseYears.clear();
-  filterState.hasJudgment = false;
-  filterState.hasOrders = false;
-  sortMode = "year_desc";
-  $("filterSearch").value = "";
-  $("filterHasJudgment").checked = false;
-  $("filterHasOrders").checked = false;
-  $("sortSelect").value = sortMode;
-
+  resetFilterState();
   buildFilterOptions(allCases);
   renderFilteredResults();
 
   $("resultsCard").hidden = false;
   $("resultsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // Persist to sessionStorage for the duration of the browser session
+  try {
+    sessionStorage.setItem(RESULTS_KEY, JSON.stringify({
+      cases: allCases,
+      summary: summaryText,
+      downloadHref: downloadHref,
+      filename: payload.output_filename,
+    }));
+  } catch (e) {
+    console.warn("Could not save results to sessionStorage:", e);
+  }
+}
+
+function resetFilterState() {
+  filterState.search = "";
+  filterState.caseTypes.clear();
+  filterState.caseYears.clear();
+  filterState.hasJudgment = false;
+  filterState.hasOrders = false;
+  filterState.caseNoMin = "";
+  filterState.caseNoMax = "";
+  filterState.petitioner = "";
+  filterState.respondent = "";
+  $("filterSearch").value = "";
+  $("filterHasJudgment").checked = false;
+  $("filterHasOrders").checked = false;
+  $("filterCaseNoMin").value = "";
+  $("filterCaseNoMax").value = "";
+  $("filterPetitioner").value = "";
+  $("filterRespondent").value = "";
+  $("sortSelect").value = "year_desc";
 }
 
 function sectionCount(c) {
@@ -384,10 +321,9 @@ function sectionCount(c) {
   return count;
 }
 
-const TOTAL_POSSIBLE_SECTIONS = 18; // Case Information + the 17 expandable sections
+const TOTAL_POSSIBLE_SECTIONS = 18;
 
-// ---- Build filter checkboxes from the actual result set (not a fixed
-// list) so options always match what's genuinely in these results ----
+// -- Build filter checkboxes from the actual result set --
 
 function buildFilterOptions(cases) {
   const typeCounts = new Map();
@@ -436,7 +372,7 @@ function renderCheckboxGroup(container, entries, stateSet, onChange) {
   }
 }
 
-// ---- Wire up the non-dynamic controls once ----
+// -- Wire up controls --
 
 $("filterSearch").addEventListener("input", (e) => {
   filterState.search = e.target.value.trim().toLowerCase();
@@ -450,28 +386,44 @@ $("filterHasOrders").addEventListener("change", (e) => {
   filterState.hasOrders = e.target.checked;
   renderFilteredResults();
 });
+$("filterCaseNoMin").addEventListener("input", (e) => {
+  filterState.caseNoMin = e.target.value.trim();
+  renderFilteredResults();
+});
+$("filterCaseNoMax").addEventListener("input", (e) => {
+  filterState.caseNoMax = e.target.value.trim();
+  renderFilteredResults();
+});
+$("filterPetitioner").addEventListener("input", (e) => {
+  filterState.petitioner = e.target.value.trim().toLowerCase();
+  renderFilteredResults();
+});
+$("filterRespondent").addEventListener("input", (e) => {
+  filterState.respondent = e.target.value.trim().toLowerCase();
+  renderFilteredResults();
+});
 $("sortSelect").addEventListener("change", (e) => {
   sortMode = e.target.value;
   renderFilteredResults();
 });
 $("clearFiltersBtn").addEventListener("click", () => {
-  filterState.search = "";
-  filterState.caseTypes.clear();
-  filterState.caseYears.clear();
-  filterState.hasJudgment = false;
-  filterState.hasOrders = false;
-  $("filterSearch").value = "";
-  $("filterHasJudgment").checked = false;
-  $("filterHasOrders").checked = false;
+  resetFilterState();
   buildFilterOptions(allCases);
   renderFilteredResults();
+});
+
+// -- Clear results button --
+$("clearResultsBtn").addEventListener("click", () => {
+  allCases = [];
+  $("resultsCard").hidden = true;
+  try { sessionStorage.removeItem(RESULTS_KEY); } catch(e) {}
 });
 
 function onFilterChange() {
   renderFilteredResults();
 }
 
-// ---- Apply filters + sort, then render ----
+// -- Apply filters + sort, then render --
 
 function renderFilteredResults() {
   let cases = allCases.filter((c) => {
@@ -487,6 +439,14 @@ function renderFilteredResults() {
     if (filterState.hasOrders && !(c.sections || {})["Daily Orders Information"]) {
       return false;
     }
+    // Case number range filter
+    const caseNoInt = parseInt(c.case_no, 10) || 0;
+    if (filterState.caseNoMin && caseNoInt < parseInt(filterState.caseNoMin, 10)) return false;
+    if (filterState.caseNoMax && caseNoInt > parseInt(filterState.caseNoMax, 10)) return false;
+    // Petitioner / respondent text filters
+    if (filterState.petitioner && !(c.petitioner || "").toLowerCase().includes(filterState.petitioner)) return false;
+    if (filterState.respondent && !(c.respondent || "").toLowerCase().includes(filterState.respondent)) return false;
+    // General search
     if (filterState.search) {
       const haystack = [
         c.case_type, c.case_no, c.case_year, c.petitioner, c.respondent,
@@ -535,6 +495,10 @@ function renderActiveChips() {
   filterState.caseYears.forEach((v) => chips.push({ label: `Year: ${v}`, clear: () => filterState.caseYears.delete(v) }));
   if (filterState.hasJudgment) chips.push({ label: "Has Judgment", clear: () => { filterState.hasJudgment = false; $("filterHasJudgment").checked = false; } });
   if (filterState.hasOrders) chips.push({ label: "Has Daily Orders", clear: () => { filterState.hasOrders = false; $("filterHasOrders").checked = false; } });
+  if (filterState.caseNoMin) chips.push({ label: `Case No ≥ ${filterState.caseNoMin}`, clear: () => { filterState.caseNoMin = ""; $("filterCaseNoMin").value = ""; } });
+  if (filterState.caseNoMax) chips.push({ label: `Case No ≤ ${filterState.caseNoMax}`, clear: () => { filterState.caseNoMax = ""; $("filterCaseNoMax").value = ""; } });
+  if (filterState.petitioner) chips.push({ label: `Petitioner: "${filterState.petitioner}"`, clear: () => { filterState.petitioner = ""; $("filterPetitioner").value = ""; } });
+  if (filterState.respondent) chips.push({ label: `Respondent: "${filterState.respondent}"`, clear: () => { filterState.respondent = ""; $("filterRespondent").value = ""; } });
   if (filterState.search) chips.push({ label: `"${filterState.search}"`, clear: () => { filterState.search = ""; $("filterSearch").value = ""; } });
 
   chips.forEach((chip) => {
@@ -589,7 +553,8 @@ function renderResults(cases) {
     container.appendChild(card);
   });
 
-  lucide.createIcons(); if (!cases.length) {
+  lucide.createIcons();
+  if (!cases.length) {
     container.innerHTML = '<p class="hint">No cases match the current filters.</p>';
   }
 }
@@ -619,19 +584,102 @@ function escapeHtml(value) {
 }
 
 // ------------------------------------------------------------------
+// Download: CSV and Markdown (client-side)
+// ------------------------------------------------------------------
+
+function downloadCsv() {
+  if (!allCases.length) return;
+  const headers = ["Case Type", "Case No", "Case Year", "Petitioner", "Respondent", "Sections Count"];
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = allCases.map((c) => [
+    c.case_type, c.case_no, c.case_year, c.petitioner, c.respondent, c._sectionCount
+  ].map(esc).join(","));
+  const csv = [headers.join(","), ...rows].join("\r\n");
+  triggerDownload(csv, "cases.csv", "text/csv;charset=utf-8;");
+}
+
+function downloadMarkdown() {
+  if (!allCases.length) return;
+  const lines = [
+    "# Case Search Results",
+    "",
+    `**${allCases.length} case(s) found**`,
+    "",
+    "---",
+    "",
+  ];
+  allCases.forEach((c, i) => {
+    lines.push(`## ${i + 1}. ${c.case_type || ""} ${c.case_no || ""}/${c.case_year || ""}`);
+    lines.push(`**${c.petitioner || "—"}** v/s **${c.respondent || "—"}**`);
+    lines.push("");
+    if (c.case_information) {
+      lines.push("### Case Information");
+      lines.push(c.case_information.trim());
+      lines.push("");
+    }
+    Object.entries(c.sections || {}).forEach(([name, text]) => {
+      lines.push(`### ${name}`);
+      lines.push(text.trim());
+      lines.push("");
+    });
+    lines.push("---", "");
+  });
+  triggerDownload(lines.join("\n"), "cases.md", "text/markdown;charset=utf-8;");
+}
+
+function triggerDownload(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+$("downloadCsvBtn").addEventListener("click", downloadCsv);
+$("downloadMdBtn").addEventListener("click", downloadMarkdown);
+
+// ------------------------------------------------------------------
+// Restore persisted results on page load
+// ------------------------------------------------------------------
+
+function restorePersistedResults() {
+  try {
+    const stored = sessionStorage.getItem(RESULTS_KEY);
+    if (!stored) return;
+    const data = JSON.parse(stored);
+    if (!data || !data.cases || !data.cases.length) return;
+
+    allCases = data.cases;
+    $("downloadLink").href = data.downloadHref || "#";
+    $("resultsSummary").textContent = (data.summary || "") + " (restored from this session)";
+
+    resetFilterState();
+    buildFilterOptions(allCases);
+    renderFilteredResults();
+    $("resultsCard").hidden = false;
+  } catch (e) {
+    console.warn("Could not restore persisted results:", e);
+  }
+}
+
+// ------------------------------------------------------------------
 // Init
 // ------------------------------------------------------------------
 
 lucide.createIcons();
 loadFormOptions();
 connectWs();
+restorePersistedResults();
 
 // Log card folding
 const logCardHeader = document.getElementById('logCardHeader');
 const logCard = document.getElementById('logCard');
 if (logCardHeader && logCard) {
   logCardHeader.addEventListener('click', (e) => {
-    // Avoid toggling when clicking the clear button
     if (e.target.closest('#clearLogBtn')) return;
     logCard.classList.toggle('open');
   });

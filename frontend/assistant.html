@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Assistant — Karnataka Judiciary Case Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Full-height chat window for the standalone assistant page */
+    .assistant-wrap {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      padding: 24px 28px;
+      max-width: 1000px;
+      width: 100%;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+
+    .assistant-wrap .chat-window {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .assistant-wrap .chat-messages {
+      /* let messages fill all available vertical space */
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Make app-main a flex column so the chat window can stretch */
+    .app-main {
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
+            Search</span></a>
+        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="sidebar__nav">
+        <div class="sidebar__group-label"><span class="label">Tools</span></div>
+        <a href="assistant.html" class="sidebar__link sidebar__link--active" title="AI Assistant"><i data-lucide="message-circle"></i><span
+            class="label">AI Assistant</span></a>
+        <a href="search.html" class="sidebar__link" title="Detailed Search"><i data-lucide="search"></i><span
+            class="label">Detailed Search</span></a>
+        <a href="case-number.html" class="sidebar__link" title="Quick Search"><i data-lucide="zap"></i><span
+            class="label">Quick Search</span></a>
+        <div class="sidebar__group-label sidebar__group-label--mt"><span class="label">Help</span></div>
+        <a href="guide.html" class="sidebar__link" title="Guide"><i data-lucide="book-open"></i><span
+            class="label">Guide</span></a>
+        <a href="faq.html" class="sidebar__link" title="FAQ"><i data-lucide="help-circle"></i><span
+            class="label">FAQ</span></a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="topbar__title">
+          <h1><i data-lucide="message-circle"></i> AI Assistant</h1>
+        </div>
+      </header>
+
+      <div class="assistant-wrap">
+        <div class="chat-window">
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg chat-msg--bot">
+              <div class="chat-msg__bubble">Hi! I'm your case search assistant. Tell me what you're looking for — for
+                example: <em>"Find writ petitions by Nandeesh against Karnataka in 2023"</em> — or ask me how to use
+                <strong>Detailed Search</strong> or <strong>Quick Search</strong>.</div>
+            </div>
+          </div>
+          <form class="chat-input-row" id="chatForm">
+            <textarea id="chatInput" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for new line)"></textarea>
+            <button type="submit" class="btn btn-primary chat-send-btn" id="chatSendBtn" aria-label="Send">
+              <i data-lucide="send"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script src="chat.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+
+</html>
