@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ — Karnataka Judiciary Case Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
+            Search</span></a>
+        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+          <i data-lucide="panel-left-close"></i>
+        </button>
+      </div>
+      <nav class="sidebar__nav">
+        <div class="sidebar__group-label"><span class="label">Tools</span></div>
+        <a href="assistant.html" class="sidebar__link" title="AI Assistant"><i data-lucide="message-circle"></i><span
+            class="label">AI Assistant</span></a>
+        <a href="search.html" class="sidebar__link" title="Detailed Search"><i data-lucide="search"></i><span
+            class="label">Detailed Search</span></a>
+        <a href="case-number.html" class="sidebar__link" title="Quick Search"><i data-lucide="zap"></i><span
+            class="label">Quick Search</span></a>
+        <div class="sidebar__group-label sidebar__group-label--mt"><span class="label">Help</span></div>
+        <a href="guide.html" class="sidebar__link" title="Guide"><i data-lucide="book-open"></i><span
+            class="label">Guide</span></a>
+        <a href="faq.html" class="sidebar__link sidebar__link--active" title="FAQ"><i data-lucide="help-circle"></i><span
+            class="label">FAQ</span></a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="topbar__title">
+          <h1><i data-lucide="help-circle"></i> FAQ</h1>
+        </div>
+      </header>
+
+      <main class="home-content">
+        <section class="guide-section">
+          <div class="guide-section__title">
+            <i data-lucide="help-circle"></i>
+            Frequently Asked Questions
+          </div>
+
+          <div class="faq-list">
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>What is the difference between Detailed Search and Quick Search?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                <strong>Detailed Search</strong> lets you filter cases across a date range by bench, judge, case type,
+                and party names (petitioner or respondent). Use it when you need to find multiple cases or don't have
+                an exact case reference.<br><br>
+                <strong>Quick Search</strong> mirrors the court website's "Quick Search by Case No." page — it looks
+                up a single specific case using its exact Case Type, Case Number, and Year. Use it when you already
+                have the full case reference.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>How do I use the AI Assistant?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                Type your query in plain English — for example: <em>"Find writ petitions filed by Nandeesh against the
+                  State of Karnataka in 2023"</em>. The assistant interprets your request and can guide you to the
+                right search tool, suggest what fields to fill, or answer general questions about the application.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>How do I run a Detailed Search?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                Go to <a href="search.html">Detailed Search</a>. Select a <strong>Bench</strong> (required), then
+                optionally choose a judge, case type, party names, advocate names, and a date range. Click
+                <strong>▶ Run Search</strong>. The app auto-solves the CAPTCHA and retrieves results page by page.
+                When complete, download an Excel file of all results using the <strong>Download Excel</strong> button.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>How do I run a Quick Search?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                Go to <a href="case-number.html">Quick Search</a>. Select a <strong>Bench</strong>, then choose the
+                <strong>Case Type</strong>, enter the <strong>Case Number</strong>, and select the
+                <strong>Case Year</strong> — all three are required. Click <strong>▶ Run Search</strong>. The CAPTCHA
+                is solved automatically and the case details are fetched directly from the court website.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>What is the date range limit in Detailed Search?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                The Karnataka Judiciary website limits each query to a maximum of 90 days. If your selected date range
+                is longer, the app automatically splits it into consecutive 90-day windows and runs them in sequence,
+                then combines all results into a single output.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>How does CAPTCHA solving work?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                The app uses an automated CAPTCHA solver configured on the backend. You don't need to solve CAPTCHAs
+                manually — they are handled transparently for every request. If a CAPTCHA fails, the app retries
+                automatically before reporting an error.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>How do I search for multiple party names at once?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                In Detailed Search, use the <strong>Search multiple entities</strong> field. Enter multiple party
+                names — one per line, or comma-separated. The app runs a separate search for each name and combines
+                all results into a single output. Use the dropdown next to the text area to choose whether the names
+                apply to the Petitioner or Respondent field.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>How do I download results?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                After a search completes, a <strong>Download Excel</strong> button appears in the Results section. You
+                can set a custom filename in the <em>Save results as</em> field before running the search. The
+                downloaded Excel file contains all case details retrieved, including party names, case type, bench,
+                and order information.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-item__q">
+                <span>Why is the connection status showing "Connecting…" or "Reconnecting…"?</span>
+                <i data-lucide="chevron-right" class="faq-chevron"></i>
+              </button>
+              <div class="faq-item__a">
+                The application connects to a local backend server via WebSocket to stream live logs and results. If
+                the status stays at "Connecting…" or keeps showing "Reconnecting…", ensure the backend server is
+                running. Refer to the project README for setup and startup instructions.
+              </div>
+            </div>
+
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script>
+    document.querySelectorAll('.faq-item__q').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.closest('.faq-item').classList.toggle('open');
+      });
+    });
+    lucide.createIcons();
+  </script>
+</body>
+
+</html>

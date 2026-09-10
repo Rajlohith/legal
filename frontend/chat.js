@@ -14,12 +14,51 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // Simple markdown → safe HTML renderer (no external deps)
+    function renderMarkdown(text) {
+        var html = text
+            // Escape HTML entities first
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            // Bold **text** or __text__
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/__(.+?)__/g, '<strong>$1</strong>')
+            // Italic *text* or _text_ (not at start of line — preserve list bullets)
+            .replace(/(?<!\n)\*(?!\*|[ \t])(.+?)(?<!\s)\*/g, '<em>$1</em>')
+            // Inline code `code`
+            .replace(/`([^`]+)`/g, '<code style="font-family:monospace;font-size:0.9em;background:#EDF0F7;padding:1px 4px;">$1</code>')
+            // Convert bullet lines: lines starting with * or - or •
+            .replace(/^[ \t]*[\*\-•][ \t]+(.+)$/gm, '<li>$1</li>')
+            // Wrap consecutive <li> blocks in <ul>
+            .replace(/(<li>[\s\S]*?<\/li>)(\n(?!<li>)|$)/g, function(m) {
+                return '<ul style="margin:6px 0 6px 18px;padding:0;">' + m.replace(/\n/g, '') + '</ul>';
+            })
+            // Numbered lists: lines starting with 1. 2. etc.
+            .replace(/^[ \t]*\d+\.[ \t]+(.+)$/gm, '<li>$1</li>')
+            // Paragraphs: blank lines → paragraph breaks
+            .replace(/\n{2,}/g, '</p><p>')
+            // Single newlines → line break
+            .replace(/\n/g, '<br>');
+
+        // Wrap in paragraph if not already
+        if (!html.startsWith('<')) {
+            html = '<p>' + html + '</p>';
+        }
+        return html;
+    }
+
     function addMessage(role, text) {
         const wrap = document.createElement("div");
         wrap.className = "chat-msg " + (role === "user" ? "chat-msg--user" : "chat-msg--bot");
         const bubble = document.createElement("div");
         bubble.className = "chat-msg__bubble";
-        bubble.textContent = text;
+        if (role === "user") {
+            bubble.textContent = text;
+        } else {
+            // Render markdown for assistant messages
+            bubble.innerHTML = renderMarkdown(text);
+        }
         wrap.appendChild(bubble);
         messagesEl.appendChild(wrap);
         scrollToBottom();

@@ -25,12 +25,18 @@
         </button>
       </div>
       <nav class="sidebar__nav">
-        <a href="index.html" class="sidebar__link" title="Home"><i data-lucide="home"></i><span
-            class="label">Home</span></a>
-        <a href="search.html" class="sidebar__link sidebar__link--active" title="Detailed Search"><i
-            data-lucide="search"></i><span class="label">Detailed Search</span></a>
+        <div class="sidebar__group-label"><span class="label">Tools</span></div>
+        <a href="assistant.html" class="sidebar__link" title="AI Assistant"><i data-lucide="message-circle"></i><span
+            class="label">AI Assistant</span></a>
+        <a href="search.html" class="sidebar__link sidebar__link--active" title="Detailed Search"><i data-lucide="search"></i><span
+            class="label">Detailed Search</span></a>
         <a href="case-number.html" class="sidebar__link" title="Quick Search"><i data-lucide="zap"></i><span
             class="label">Quick Search</span></a>
+        <div class="sidebar__group-label sidebar__group-label--mt"><span class="label">Help</span></div>
+        <a href="guide.html" class="sidebar__link" title="Guide"><i data-lucide="book-open"></i><span
+            class="label">Guide</span></a>
+        <a href="faq.html" class="sidebar__link" title="FAQ"><i data-lucide="help-circle"></i><span
+            class="label">FAQ</span></a>
       </nav>
     </aside>
 
@@ -39,7 +45,6 @@
       <header class="topbar">
         <div class="topbar__title">
           <h1><i data-lucide="search"></i> Detailed Search</h1>
-          <p>Karnataka Judiciary — judgment &amp; case record lookup</p>
         </div>
         <div class="topbar__status" id="connStatus">
           <span class="dot" id="connDot"></span>
@@ -52,158 +57,136 @@
         <!-- ===================== Search card ===================== -->
         <section class="card search-card">
 
-          <div class="tabs">
-            <button class="tab active" data-tab="manual" id="tabManualBtn">Manual Search</button>
-            <button class="tab" data-tab="ai" id="tabAiBtn">Describe your search (AI)</button>
-          </div>
+          <form id="searchForm">
 
-          <!-- ---- AI tab ---- -->
-          <div class="tab-panel" id="panelAi" hidden>
-            <label class="field-label" for="aiText">Describe the case or search you want</label>
-            <textarea id="aiText" rows="5"
-              placeholder="e.g. Find writ petitions filed by Sri Nandeesh against the State of Karnataka in the Principal Bench sometime in 2023, reported judgments only."></textarea>
-            <div class="row-actions">
-              <button class="btn btn-primary" id="aiFillBtn">✨ Fill form with AI</button>
-              <span class="hint">The AI only fills the form below — it never runs the search itself.</span>
+            <div class="field-group">
+              <label class="field-label" for="dbBench">Select Bench <span class="req">*</span></label>
+              <select id="dbBench" required>
+                <option value="">-- Select --</option>
+              </select>
             </div>
-            <div id="aiNotes" class="ai-notes" hidden></div>
-            <div id="aiError" class="error-banner" hidden></div>
-          </div>
 
-          <!-- ---- Manual tab (always the form of record; AI results land here too) ---- -->
-          <div class="tab-panel" id="panelManual">
-            <form id="searchForm">
-
+            <div class="grid-3">
               <div class="field-group">
-                <label class="field-label" for="dbBench">Select Bench <span class="req">*</span></label>
-                <select id="dbBench" required>
-                  <option value="">-- Select --</option>
+                <label class="field-label" for="judge">Judge <span class="opt">(optional)</span></label>
+                <select id="judge">
+                  <option value="">-- Select bench first --</option>
                 </select>
               </div>
-
-              <div class="grid-3">
-                <div class="field-group">
-                  <label class="field-label" for="judge">Judge <span class="opt">(optional)</span></label>
-                  <select id="judge">
-                    <option value="">-- Select bench first --</option>
-                  </select>
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="authJudge">Author Judge <span class="opt">(optional)</span></label>
-                  <select id="authJudge">
-                    <option value="">-- Select bench first --</option>
-                  </select>
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="coram">Coram <span class="opt">(optional)</span></label>
-                  <select id="coram"></select>
-                </div>
-              </div>
-
-              <div class="grid-3">
-                <div class="field-group">
-                  <label class="field-label" for="caseType">Case Type <span class="opt">(optional)</span></label>
-                  <select id="caseType"></select>
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="caseNo">Case Number <span class="opt">(optional)</span></label>
-                  <input type="text" id="caseNo" maxlength="6" inputmode="numeric" placeholder="e.g. 48907">
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="caseYear">Case Year <span class="opt">(optional)</span></label>
-                  <select id="caseYear"></select>
-                </div>
-              </div>
-
-              <div class="grid-2">
-                <div class="field-group">
-                  <label class="field-label" for="petName">Petitioner Name <span class="opt">(optional)</span></label>
-                  <input type="text" id="petName">
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="respName">Respondent Name <span class="opt">(optional)</span></label>
-                  <input type="text" id="respName">
-                </div>
-              </div>
-
-              <div class="grid-2">
-                <div class="field-group">
-                  <label class="field-label" for="petAdv">Petitioner Advocate <span
-                      class="opt">(optional)</span></label>
-                  <input type="text" id="petAdv">
-                </div>
-                <div class="field-group">
-                  <label class="field-label" for="respAdv">Respondent Advocate <span
-                      class="opt">(optional)</span></label>
-                  <input type="text" id="respAdv">
-                </div>
-              </div>
-
               <div class="field-group">
-                <label class="field-label" for="aliases">
-                  Search multiple entities (optional)
-                </label>
-                <p class="hint">One name per line, or comma-separated. Each is searched in turn, applied to the field
-                  chosen
-                  on the right.</p>
-                <div class="grid-alias">
-                  <textarea id="aliases" rows="3"
-                    placeholder="e.g.&#10;Sri Nandeesh&#10;ABC Constructions Pvt Ltd"></textarea>
-                  <select id="aliasField">
-                    <option value="respondname">Applies to: Respondent Name</option>
-                    <option value="petname">Applies to: Petitioner Name</option>
-                  </select>
-                </div>
+                <label class="field-label" for="authJudge">Author Judge <span class="opt">(optional)</span></label>
+                <select id="authJudge">
+                  <option value="">-- Select bench first --</option>
+                </select>
               </div>
-
               <div class="field-group">
-                <label class="field-label">Date of Order</label>
-                <p class="hint">Required unless Case Type + Case Number + Case Year are all filled in. Ranges longer
-                  than 90
-                  days are split into consecutive windows automatically.</p>
-                <div class="grid-2">
-                  <div>
-                    <label class="field-label-sm" for="fromDate">From</label>
-                    <input type="date" id="fromDate">
-                  </div>
-                  <div>
-                    <label class="field-label-sm" for="toDate">To</label>
-                    <input type="date" id="toDate">
-                  </div>
-                </div>
+                <label class="field-label" for="coram">Coram <span class="opt">(optional)</span></label>
+                <select id="coram"></select>
               </div>
+            </div>
 
+            <div class="grid-3">
               <div class="field-group">
-                <label class="field-label">Report Type <span class="opt">(optional)</span></label>
-                <div class="radio-row" id="reportTypeRow"></div>
+                <label class="field-label" for="caseType">Case Type <span class="opt">(optional)</span></label>
+                <select id="caseType"></select>
               </div>
-
               <div class="field-group">
-                <label class="field-label" for="outputFilename">Save results as <span
+                <label class="field-label" for="caseNo">Case Number <span class="opt">(optional)</span></label>
+                <input type="text" id="caseNo" maxlength="6" inputmode="numeric" placeholder="e.g. 48907">
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="caseYear">Case Year <span class="opt">(optional)</span></label>
+                <select id="caseYear"></select>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="field-group">
+                <label class="field-label" for="petName">Petitioner Name <span class="opt">(optional)</span></label>
+                <input type="text" id="petName">
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="respName">Respondent Name <span class="opt">(optional)</span></label>
+                <input type="text" id="respName">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="field-group">
+                <label class="field-label" for="petAdv">Petitioner Advocate <span
                     class="opt">(optional)</span></label>
-                <input type="text" id="outputFilename" placeholder="Case_Search_Results.xlsx">
+                <input type="text" id="petAdv">
               </div>
-
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary btn-lg" id="runBtn">▶ Run Search</button>
-                <button type="button" class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
+              <div class="field-group">
+                <label class="field-label" for="respAdv">Respondent Advocate <span
+                    class="opt">(optional)</span></label>
+                <input type="text" id="respAdv">
               </div>
+            </div>
 
-              <div class="progress-wrap" hidden id="progressWrap">
-                <div class="progress-bar">
-                  <div class="progress-bar__fill" id="progressFill"></div>
+            <div class="field-group">
+              <label class="field-label" for="aliases">
+                Search multiple entities <span class="opt">(optional)</span>
+              </label>
+              <p class="hint">One name per line, or comma-separated. Each is searched in turn, applied to the field
+                chosen on the right.</p>
+              <div class="grid-alias">
+                <textarea id="aliases" rows="3"
+                  placeholder="e.g.&#10;Sri Nandeesh&#10;ABC Constructions Pvt Ltd"></textarea>
+                <select id="aliasField">
+                  <option value="respondname">Applies to: Respondent Name</option>
+                  <option value="petname">Applies to: Petitioner Name</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Date of Order</label>
+              <p class="hint">Required unless Case Type + Case Number + Case Year are all filled in. Ranges longer
+                than 90 days are split into consecutive windows automatically.</p>
+              <div class="grid-2">
+                <div>
+                  <label class="field-label-sm" for="fromDate">From</label>
+                  <input type="date" id="fromDate">
                 </div>
-                <p class="progress-label" id="progressLabel">Ready</p>
+                <div>
+                  <label class="field-label-sm" for="toDate">To</label>
+                  <input type="date" id="toDate">
+                </div>
               </div>
-            </form>
-          </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Report Type <span class="opt">(optional)</span></label>
+              <div class="radio-row" id="reportTypeRow"></div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="outputFilename">Save results as <span
+                  class="opt">(optional)</span></label>
+              <input type="text" id="outputFilename" placeholder="Case_Search_Results.xlsx">
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-lg" id="runBtn">▶ Run Search</button>
+              <button type="button" class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
+            </div>
+
+            <div class="progress-wrap" hidden id="progressWrap">
+              <div class="progress-bar">
+                <div class="progress-bar__fill" id="progressFill"></div>
+              </div>
+              <p class="progress-label" id="progressLabel">Ready</p>
+            </div>
+          </form>
+
         </section>
 
         <!-- ===================== Activity log ===================== -->
         <section class="card log-card">
-          <div class="card-header">
+          <div class="log-card__title">
             <h2>Activity Log</h2>
-            <button class="btn btn-ghost btn-sm" id="clearLogBtn"><i data-lucide="trash-2"></i>Clear</button>
+            <button class="btn btn-ghost btn-sm" id="clearLogBtn"><i data-lucide="trash-2"></i> Clear</button>
           </div>
           <div class="log-box" id="logBox"></div>
         </section>
@@ -211,9 +194,15 @@
         <!-- ===================== Results ===================== -->
         <section class="card results-card" id="resultsCard" hidden>
           <div class="card-header">
-            <h2>Results</h2>
-            <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download><i data-lucide="download"></i>Download
-              Excel</a>
+            <div class="results-header-left">
+              <h2>Results</h2>
+              <button class="btn btn-ghost btn-sm" id="clearResultsBtn" title="Clear results"><i data-lucide="x-circle"></i> Clear</button>
+            </div>
+            <div class="download-options">
+              <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download><i data-lucide="file-spreadsheet"></i> Excel</a>
+              <button class="btn btn-outline btn-sm" id="downloadCsvBtn"><i data-lucide="file-text"></i> CSV</button>
+              <button class="btn btn-outline btn-sm" id="downloadMdBtn"><i data-lucide="file-code"></i> Markdown</button>
+            </div>
           </div>
           <p class="results-summary" id="resultsSummary"></p>
 
@@ -228,10 +217,28 @@
 
               <div class="filter-group">
                 <label class="field-label-sm">Search within results</label>
-                <div class="input-icon-wrap">
-                  <i data-lucide="search"></i>
-                  <input type="text" id="filterSearch" placeholder="Search parties, case no...">
+                <div class="input-icon-wrap" style="position:relative;overflow:hidden;">
+                  <i data-lucide="search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--text-muted);pointer-events:none;z-index:1;"></i>
+                  <input type="text" id="filterSearch" placeholder="Parties, case no…" style="padding-left:30px;font-size:12.5px;padding-top:8px;padding-bottom:8px;">
                 </div>
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Case Number</label>
+                <div class="filter-range">
+                  <input type="text" id="filterCaseNoMin" placeholder="From" inputmode="numeric" class="filter-text-input" style="margin:0;">
+                  <input type="text" id="filterCaseNoMax" placeholder="To" inputmode="numeric" class="filter-text-input" style="margin:0;">
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Petitioner</label>
+                <input type="text" id="filterPetitioner" placeholder="Contains…" class="filter-text-input">
+              </div>
+
+              <div class="filter-group">
+                <label class="field-label-sm">Respondent</label>
+                <input type="text" id="filterRespondent" placeholder="Contains…" class="filter-text-input">
               </div>
 
               <div class="filter-group">

@@ -1,9 +1,9 @@
 const $ = (id) => document.getElementById(id);
 
+const RESULTS_KEY = "quickSearchResults";
+
 // ------------------------------------------------------------------
-// Form options (static dropdowns) -- same /api/form-options the
-// Detailed Search page uses; we only need db_bench, case_types and
-// case_years out of it here.
+// Form options
 // ------------------------------------------------------------------
 
 async function loadFormOptions() {
@@ -34,12 +34,11 @@ function fillSelect(select, options, placeholder) {
 }
 
 // ------------------------------------------------------------------
-// WebSocket: live log / progress / results (same /ws/logs channel
-// the Detailed Search page uses -- only one search runs at a time
-// across both pages).
+// WebSocket
 // ------------------------------------------------------------------
 
 let ws;
+let allCases = [];
 
 function connectWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -144,7 +143,7 @@ $("stopBtn").addEventListener("click", async () => {
 });
 
 // ------------------------------------------------------------------
-// Results rendering (same shape/markup as the Detailed Search page)
+// Results rendering
 // ------------------------------------------------------------------
 
 function onSearchDone(payload) {
@@ -158,14 +157,29 @@ function onSearchDone(payload) {
 
   appendLog(`Output saved to outputs/${payload.output_filename}`);
 
-  $("downloadLink").href = `/outputs/${encodeURIComponent(payload.output_filename)}`;
-  $("resultsSummary").textContent = payload.case_count
+  const downloadHref = `/outputs/${encodeURIComponent(payload.output_filename)}`;
+  $("downloadLink").href = downloadHref;
+  const summaryText = payload.case_count
     ? `${payload.case_count} case(s) found.`
     : "No case matched that Case Type / Number / Year.";
+  $("resultsSummary").textContent = summaryText;
 
-  renderResults(payload.cases || []);
+  allCases = payload.cases || [];
+  renderResults(allCases);
   $("resultsCard").hidden = false;
   $("resultsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // Persist to sessionStorage
+  try {
+    sessionStorage.setItem(RESULTS_KEY, JSON.stringify({
+      cases: allCases,
+      summary: summaryText,
+      downloadHref: downloadHref,
+      filename: payload.output_filename,
+    }));
+  } catch (e) {
+    console.warn("Could not save results to sessionStorage:", e);
+  }
 }
 
 function renderResults(cases) {
@@ -206,7 +220,8 @@ function renderResults(cases) {
     container.appendChild(card);
   });
 
-  lucide.createIcons(); if (!cases.length) {
+  lucide.createIcons();
+  if (!cases.length) {
     container.innerHTML = '<p class="hint">No case matched that Case Type / Number / Year.</p>';
   }
   lucide.createIcons();
@@ -237,19 +252,99 @@ function escapeHtml(value) {
 }
 
 // ------------------------------------------------------------------
+// Download: CSV and Markdown (client-side)
+// ------------------------------------------------------------------
+
+function downloadCsv() {
+  if (!allCases.length) return;
+  const headers = ["Case Type", "Case No", "Case Year", "Petitioner", "Respondent"];
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = allCases.map((c) => [
+    c.case_type, c.case_no, c.case_year, c.petitioner, c.respondent
+  ].map(esc).join(","));
+  const csv = [headers.join(","), ...rows].join("\r\n");
+  triggerDownload(csv, "case.csv", "text/csv;charset=utf-8;");
+}
+
+function downloadMarkdown() {
+  if (!allCases.length) return;
+  const lines = ["# Case Search Results", "", `**${allCases.length} case(s) found**`, "", "---", ""];
+  allCases.forEach((c, i) => {
+    lines.push(`## ${i + 1}. ${c.case_type || ""} ${c.case_no || ""}/${c.case_year || ""}`);
+    lines.push(`**${c.petitioner || "—"}** v/s **${c.respondent || "—"}**`);
+    lines.push("");
+    if (c.case_information) {
+      lines.push("### Case Information");
+      lines.push(c.case_information.trim());
+      lines.push("");
+    }
+    Object.entries(c.sections || {}).forEach(([name, text]) => {
+      lines.push(`### ${name}`);
+      lines.push(text.trim());
+      lines.push("");
+    });
+    lines.push("---", "");
+  });
+  triggerDownload(lines.join("\n"), "case.md", "text/markdown;charset=utf-8;");
+}
+
+function triggerDownload(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+$("downloadCsvBtn").addEventListener("click", downloadCsv);
+$("downloadMdBtn").addEventListener("click", downloadMarkdown);
+
+// -- Clear results button --
+$("clearResultsBtn").addEventListener("click", () => {
+  allCases = [];
+  $("resultsCard").hidden = true;
+  try { sessionStorage.removeItem(RESULTS_KEY); } catch(e) {}
+});
+
+// ------------------------------------------------------------------
+// Restore persisted results
+// ------------------------------------------------------------------
+
+function restorePersistedResults() {
+  try {
+    const stored = sessionStorage.getItem(RESULTS_KEY);
+    if (!stored) return;
+    const data = JSON.parse(stored);
+    if (!data || !data.cases || !data.cases.length) return;
+
+    allCases = data.cases;
+    $("downloadLink").href = data.downloadHref || "#";
+    $("resultsSummary").textContent = (data.summary || "") + " (restored from this session)";
+    renderResults(allCases);
+    $("resultsCard").hidden = false;
+  } catch (e) {
+    console.warn("Could not restore persisted results:", e);
+  }
+}
+
+// ------------------------------------------------------------------
 // Init
 // ------------------------------------------------------------------
 
 lucide.createIcons();
 loadFormOptions();
 connectWs();
+restorePersistedResults();
 
 // Log card folding
 const logCardHeader = document.getElementById('logCardHeader');
 const logCard = document.getElementById('logCard');
 if (logCardHeader && logCard) {
   logCardHeader.addEventListener('click', (e) => {
-    // Avoid toggling when clicking the clear button
     if (e.target.closest('#clearLogBtn')) return;
     logCard.classList.toggle('open');
   });
