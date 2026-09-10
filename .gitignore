@@ -1,8 +1,100 @@
+# ==============================
+# Python
+# ==============================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# ==============================
+# Virtual Environment
+# ==============================
+.venv/
+venv/
+env/
+ENV/
+
+# ==============================
+# Environment / Secrets
+# ==============================
 .env
-outputs/*.xlsx
-*_debug.html
+.env.*
+!.env.example
+
+# ==============================
+# User / Local Configuration
+# ==============================
 user_settings.json
+*.local.json
+
+# ==============================
+# Generated Output
+# ==============================
+outputs/
 *.xlsx
-outputs
+*.csv
+*.pdf
+
+# ==============================
+# Debug / Temporary Files
+# ==============================
+*_debug.html
+*_debug.txt
+*.tmp
+*.temp
+
+# ==============================
+# Logs
+# ==============================
+*.log
+logs/
+
+# ==============================
+# Testing / Coverage
+# ==============================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ==============================
+# Type Checking
+# ==============================
+.mypy_cache/
+.pyre/
+.pytype/
+
+# ==============================
+# Jupyter Notebook
+# ==============================
+.ipynb_checkpoints/
+
+# ==============================
+# Build / Packaging
+# ==============================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ==============================
+# IDE / Editors
+# ==============================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==============================
+# OS Generated Files
+# ==============================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==============================
+# Python Packaging
+# ==============================
+pip-wheel-metadata/
+MANIFEST

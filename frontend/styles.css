@@ -1812,3 +1812,102 @@ body {
 .guide-block.collapsed .guide-steps {
   display: none;
 }
+
+/* ============================================================
+   Improved Section Body Rendering
+   ============================================================ */
+
+.section-item__body {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* Field/value table inside a section */
+.section-fields {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+}
+.section-fields td {
+  padding: 4px 8px 4px 0;
+  vertical-align: top;
+  line-height: 1.5;
+}
+.section-fields td.field-key {
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-right: 14px;
+  min-width: 160px;
+  max-width: 200px;
+}
+.section-fields td.field-val {
+  color: var(--text);
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Party table inside Party Information */
+.party-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+.party-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 8px;
+  background: #F6F4EE;
+  white-space: nowrap;
+}
+.party-table td {
+  padding: 5px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid #EBE8DE;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.45;
+}
+.party-block-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 12px 0 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Narrative / plain text within a section */
+.section-narrative {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Section badge for collapsible header */
+.section-item__header {
+  gap: 6px;
+}
+.section-data-badge {
+  font-size: 10px;
+  background: #EDE9D8;
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 1px 7px;
+  margin-left: auto;
+  margin-right: 6px;
+  white-space: nowrap;
+}
