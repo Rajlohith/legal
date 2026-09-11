@@ -26,6 +26,14 @@ BENCH_VALUE_TO_NAME = {v: k for k, v in BENCH_OPTIONS.items()}
 PDF_DIR = OUTPUT_DIR / "pdfs"
 
 
+def _as_section_set(included_sections):
+    """None -> everything (engines treat None as 'no filter').
+    An explicit empty list means the user deselected every section."""
+    if included_sections is None:
+        return None
+    return set(included_sections)
+
+
 def _bundle_output(output_path_str, cases, log):
     """
     If any case in this run captured a Judgment PDF, zip the workbook
@@ -73,7 +81,9 @@ def _serialize_cases(cases):
                 "respondent": respondent,
                 "base_row": base_row,
                 "case_information": case.get("case_info_text", ""),
+                "case_info_structured": case.get("case_info_structured"),
                 "sections": case.get("sections_data", {}),
+                "sections_structured": case.get("sections_structured", {}),
                 "judgment_pdf": case.get("judgment_pdf"),
             }
         )
@@ -244,6 +254,7 @@ class JobManager:
             coram=criteria.get("coram") or None,
             report_type=criteria.get("report_type") or None,
             pdf_dir=PDF_DIR,
+            included_sections=_as_section_set(criteria.get("included_sections")),
         )
 
         final_path = _bundle_output(summary["output_path"], summary["cases"], log)
@@ -302,6 +313,7 @@ class JobManager:
             criteria["case_year"],
             output_path,
             pdf_dir=PDF_DIR,
+            included_sections=_as_section_set(criteria.get("included_sections")),
         )
 
         final_path = _bundle_output(summary["output_path"], summary["cases"], log)

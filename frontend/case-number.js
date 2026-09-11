@@ -17,6 +17,42 @@ async function loadFormOptions() {
     data.case_years.map((y) => ({ value: String(y), label: String(y) })),
     "Select Year"
   );
+
+  renderSectionsChecklist(data.sections || []);
+}
+
+function renderSectionsChecklist(sectionNames) {
+  const container = $("sectionsList");
+  if (!container) return;
+  container.innerHTML = "";
+  sectionNames.forEach((name) => {
+    const label = document.createElement("label");
+    label.className = "checkbox-row";
+    label.innerHTML = `<input type="checkbox" value="${escapeHtml(name)}" checked><span>${escapeHtml(name)}</span>`;
+    container.appendChild(label);
+  });
+}
+
+function getIncludedSections() {
+  const container = $("sectionsList");
+  if (!container) return null;
+  const boxes = [...container.querySelectorAll('input[type="checkbox"]')];
+  if (!boxes.length) return null;
+  const checked = boxes.filter((b) => b.checked).map((b) => b.value);
+  return checked.length === boxes.length ? null : checked;
+}
+
+const sectionsSelectAllBtn2 = $("sectionsSelectAll");
+if (sectionsSelectAllBtn2) {
+  sectionsSelectAllBtn2.addEventListener("click", () => {
+    $("sectionsList").querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = true; });
+  });
+}
+const sectionsSelectNoneBtn2 = $("sectionsSelectNone");
+if (sectionsSelectNoneBtn2) {
+  sectionsSelectNoneBtn2.addEventListener("click", () => {
+    $("sectionsList").querySelectorAll('input[type="checkbox"]').forEach((b) => { b.checked = false; });
+  });
 }
 
 function fillSelect(select, options, placeholder) {
@@ -124,6 +160,7 @@ $("caseNumberForm").addEventListener("submit", async (e) => {
     case_no: $("caseNo").value,
     case_year: $("caseYear").value,
     output_filename: $("outputFilename").value || null,
+    included_sections: getIncludedSections(),
   };
 
   if (!criteria.db_bench || !criteria.case_type || !criteria.case_no || !criteria.case_year) {
@@ -201,6 +238,41 @@ function onSearchDone(payload) {
   }
 }
 
+function collectSections(c) {
+  const entries = [];
+  if (c.case_info_structured || c.case_information) {
+    entries.push(["Case Information", c.case_information || "", c.case_info_structured || null]);
+  }
+  const names = new Set([
+    ...Object.keys(c.sections || {}),
+    ...Object.keys(c.sections_structured || {}),
+  ]);
+  names.forEach((name) => {
+    const text = (c.sections || {})[name] || "";
+    const structured = (c.sections_structured || {})[name] || null;
+    if (text || structured) entries.push([name, text, structured]);
+  });
+  return entries;
+}
+
+function tableColumns(table) {
+  const cols = [];
+  (table.headers || []).forEach((h) => { if (h && !cols.includes(h)) cols.push(h); });
+  (table.rows || []).forEach((row) => {
+    Object.keys(row).forEach((k) => { if (!cols.includes(k)) cols.push(k); });
+  });
+  return cols;
+}
+
+function sectionRowCount(structured) {
+  if (!structured) return 0;
+  if (structured.kind === "tables") {
+    return (structured.tables || []).reduce((sum, t) => sum + (t.rows || []).length, 0);
+  }
+  if (structured.kind === "fields") return (structured.pairs || []).length;
+  return 0;
+}
+
 function renderResults(cases) {
   const container = $("resultsList");
   container.innerHTML = "";
@@ -227,11 +299,8 @@ function renderResults(cases) {
     const accordion = document.createElement("div");
     accordion.className = "section-accordion";
 
-    if (c.case_information) {
-      accordion.appendChild(sectionItem("Case Information", c.case_information));
-    }
-    Object.entries(c.sections || {}).forEach(([name, text]) => {
-      accordion.appendChild(sectionItem(name, text));
+    collectSections(c).forEach(([name, text, structured]) => {
+      accordion.appendChild(sectionItem(name, text, structured));
     });
 
     body.appendChild(accordion);
@@ -247,20 +316,29 @@ function renderResults(cases) {
   lucide.createIcons();
 }
 
-function sectionItem(title, text) {
+function sectionItem(title, text, structured) {
   const item = document.createElement("div");
   item.className = "section-item";
 
   const header = document.createElement("div");
   header.className = "section-item__header";
-  const words = text ? text.trim().split(/\s+/).length : 0;
-  const badge = words > 5 ? `<span class="section-data-badge">${words} words</span>` : '';
+
+  let badge = "";
+  const rowCount = sectionRowCount(structured);
+  if (rowCount) {
+    badge = `<span class="section-data-badge">${rowCount} row${rowCount !== 1 ? "s" : ""}</span>`;
+  } else {
+    const narrativeText = structured && structured.kind === "narrative" ? structured.text : text;
+    const words = narrativeText ? narrativeText.trim().split(/\s+/).filter(Boolean).length : 0;
+    if (words > 5) badge = `<span class="section-data-badge">${words} words</span>`;
+  }
+
   header.innerHTML = `<span>${escapeHtml(title)}</span>${badge}<span class="section-item__chevron"><i data-lucide="chevron-right"></i></span>`;
   header.addEventListener("click", () => item.classList.toggle("open"));
 
   const body = document.createElement("div");
   body.className = "section-item__body";
-  body.innerHTML = renderSectionHTML(title, text);
+  body.innerHTML = renderSectionHTML(text, structured);
 
   item.appendChild(header);
   item.appendChild(body);
@@ -268,112 +346,62 @@ function sectionItem(title, text) {
 }
 
 // ------------------------------------------------------------------
-// Rich section content rendering (shared with case-number page)
+// Rich section content rendering -- driven entirely by the structure
+// the backend read from the page's own HTML (see
+// scraper/section_structure.py). No section-name-specific parsing
+// here: a "tables" section renders as real tables using whatever
+// columns it actually has, a "fields" section as a two-column table,
+// and anything else as plain narrative text.
 // ------------------------------------------------------------------
 
-const CASE_INFO_FIELDS = [
-  "Status","Case Number","Classification","Date of Filing","Petitioner",
-  "Petitioner Advocate","Respondent","Respondent Advocate","Filing No\\.",
-  "Judge","Last Posted For","Date of Decision","Last Action Taken",
-  "Next Hearing Date","Case Type","Case Year","Case No",
-];
-
-function renderSectionHTML(title, text) {
-  if (!text || !text.trim()) {
-    return '<p class="hint" style="margin:0;font-size:13px;color:var(--text-muted);">No data recorded.</p>';
+function renderSectionHTML(text, structured) {
+  if (!structured) {
+    if (!text || !text.trim()) {
+      return '<p class="hint" style="margin:0;font-size:13px;color:var(--text-muted);">No data recorded.</p>';
+    }
+    return renderNarrative(text);
   }
-  switch (title) {
-    case "Case Information": return renderCaseInformation(text);
-    case "Party Information": return renderPartyInformation(text);
-    case "Prayer Information": return renderPrayerInformation(text);
-    default: return renderNarrative(text);
+  if (structured.kind === "tables") {
+    const html = (structured.tables || []).map(renderStructuredTable).join("");
+    return html || '<p class="hint" style="margin:0;font-size:13px;color:var(--text-muted);">No data recorded.</p>';
   }
+  if (structured.kind === "fields") {
+    return renderFieldsTable(structured.pairs || []);
+  }
+  if (structured.kind === "narrative") {
+    return renderNarrative(structured.text || "");
+  }
+  return '<p class="hint" style="margin:0;font-size:13px;color:var(--text-muted);">No data recorded.</p>';
 }
 
 function renderNarrative(text) {
+  if (!text || !text.trim()) {
+    return '<p class="hint" style="margin:0;font-size:13px;color:var(--text-muted);">No data recorded.</p>';
+  }
   return `<pre class="section-narrative">${escapeHtml(text.trim())}</pre>`;
 }
 
-function renderCaseInformation(text) {
-  const fieldPattern = new RegExp(
-    "(" + CASE_INFO_FIELDS.join("|") + "):\\s*",
-    "g"
-  );
-  const cleaned = text.trim();
-  const matches = [...cleaned.matchAll(fieldPattern)];
-  if (!matches.length) return renderNarrative(text);
-
-  const pairs = [];
-  for (let i = 0; i < matches.length; i++) {
-    const key = matches[i][1];
-    const start = matches[i].index + matches[i][0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index : cleaned.length;
-    const val = cleaned.slice(start, end).trim();
-    pairs.push([key, val]);
-  }
-
+function renderFieldsTable(pairs) {
+  if (!pairs.length) return '<p class="hint" style="margin:0;font-size:13px;color:var(--text-muted);">No data recorded.</p>';
   let html = '<table class="section-fields">';
   pairs.forEach(([k, v]) => {
-    html += `<tr><td class="field-key">${escapeHtml(k)}</td><td class="field-val">${escapeHtml(v)}</td></tr>`;
+    html += `<tr><td class="field-key">${escapeHtml(k)}</td><td class="field-val">${escapeHtml(v).replace(/\n/g, "<br>")}</td></tr>`;
   });
   html += "</table>";
   return html;
 }
 
-function renderPrayerInformation(text) {
-  const cleaned = text.trim().replace(/^Prayer Details:\s*/i, "");
-  return `<pre class="section-narrative">${escapeHtml(cleaned)}</pre>`;
-}
-
-function renderPartyInformation(text) {
-  const blocks = [];
-  const blockRe = /(Petitioner Details|Respondent Details):/gi;
-  const bMatches = [...text.matchAll(blockRe)];
-
-  if (!bMatches.length) return renderNarrative(text);
-
-  bMatches.forEach((m, i) => {
-    const blockTitle = m[1];
-    const start = m.index + m[0].length;
-    const end = i + 1 < bMatches.length ? bMatches[i + 1].index : text.length;
-    const blockText = text.slice(start, end).trim();
-    blocks.push({ title: blockTitle, text: blockText });
-  });
-
+function renderStructuredTable(table) {
+  const cols = tableColumns(table);
+  if (!cols.length || !(table.rows || []).length) return "";
   let html = "";
-  blocks.forEach((block) => {
-    html += `<div class="party-block-title">${escapeHtml(block.title)}</div>`;
-    html += renderPartyBlock(block.text);
+  if (table.title) html += `<div class="party-block-title">${escapeHtml(table.title)}</div>`;
+  html += '<table class="party-table"><thead><tr>' + cols.map((h) => `<th>${escapeHtml(h)}</th>`).join("") + "</tr></thead><tbody>";
+  (table.rows || []).forEach((row) => {
+    html += "<tr>" + cols.map((h) => `<td>${escapeHtml(row[h] || "").replace(/\n/g, "<br>")}</td>`).join("") + "</tr>";
   });
+  html += "</tbody></table>";
   return html;
-}
-
-function renderPartyBlock(text) {
-  const entryRe = /\b(\d{1,2})\s+(THE |SRI |SMT |MR\.|MS\.|DR\.|M\/S\s)/gi;
-  const entries = [...text.matchAll(entryRe)];
-
-  if (entries.length > 1) {
-    const rows = [];
-    for (let i = 0; i < entries.length; i++) {
-      const num = entries[i][1];
-      const start = entries[i].index;
-      const end = i + 1 < entries.length ? entries[i + 1].index : text.length;
-      const content = text.slice(start + entries[i][0].length - entries[i][2].length, end).trim();
-      const advMatch = content.match(/Advocate:\s*(.*?)(?=\s+\d+\s+(?:THE|SRI|SMT|MR\.|MS\.|M\/S)|$)/i);
-      const advName = advMatch ? advMatch[1].trim() : "";
-      const address = advMatch ? content.slice(0, advMatch.index).trim() : content;
-      rows.push({ num, address, advocate: advName });
-    }
-
-    let html = '<table class="party-table"><thead><tr><th>#</th><th>Party</th><th>Advocate</th></tr></thead><tbody>';
-    rows.forEach((r) => {
-      html += `<tr><td>${escapeHtml(r.num)}</td><td>${escapeHtml(r.address)}</td><td>${escapeHtml(r.advocate)}</td></tr>`;
-    });
-    html += "</tbody></table>";
-    return html;
-  }
-
-  return renderNarrative(text);
 }
 
 function escapeHtml(value) {
@@ -391,12 +419,13 @@ function downloadPdf() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   const margin = 14;
   const contentW = pageW - margin * 2;
   let y = margin;
 
   const addPageIfNeeded = (needed) => {
-    if (y + needed > doc.internal.pageSize.getHeight() - margin) {
+    if (y + needed > pageH - margin) {
       doc.addPage();
       y = margin;
     }
@@ -437,13 +466,17 @@ function downloadPdf() {
     doc.text(`${c.petitioner || "—"} v/s ${c.respondent || "—"}`, margin + 2, y);
     y += 7;
 
-    const allSections = [];
-    if (c.case_information) allSections.push(["Case Information", c.case_information]);
-    Object.entries(c.sections || {}).forEach(([name, text]) => {
-      if (text && text.trim()) allSections.push([name, text]);
-    });
+    if (c.judgment_pdf) {
+      addPageIfNeeded(6);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(140, 109, 47);
+      doc.text(`Judgment PDF: pdfs/${c.judgment_pdf}  (included in the Excel .zip download)`, margin, y);
+      doc.setFont("helvetica", "normal");
+      y += 6;
+    }
 
-    allSections.forEach(([secName, secText]) => {
+    collectSections(c).forEach(([secName, secText, structured]) => {
       addPageIfNeeded(12);
 
       doc.setFontSize(9);
@@ -452,19 +485,55 @@ function downloadPdf() {
       doc.text(secName, margin, y);
       doc.setDrawColor(31, 58, 95);
       doc.line(margin, y + 1, pageW - margin, y + 1);
-      y += 6;
+      y += 5;
 
-      const bodyText = secText.trim();
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(27, 27, 23);
-      const lines = doc.splitTextToSize(bodyText, contentW - 4);
-      lines.forEach((line) => {
-        addPageIfNeeded(4.5);
-        doc.text(line, margin + 2, y);
-        y += 4.5;
-      });
-      y += 3;
+      if (structured && structured.kind === "tables" && structured.tables.length) {
+        structured.tables.forEach((table) => {
+          if (table.title) {
+            addPageIfNeeded(6);
+            doc.setFontSize(8.5);
+            doc.setFont("helvetica", "bolditalic");
+            doc.setTextColor(140, 109, 47);
+            doc.text(table.title, margin, y);
+            doc.setFont("helvetica", "normal");
+            y += 4;
+          }
+          const cols = tableColumns(table);
+          const body = (table.rows || []).map((row) => cols.map((h) => String(row[h] || "")));
+          doc.autoTable({
+            startY: y,
+            head: [cols],
+            body,
+            margin: { left: margin, right: margin },
+            styles: { fontSize: 7.5, cellPadding: 1.5, textColor: [27, 27, 23], overflow: "linebreak" },
+            headStyles: { fillColor: [31, 58, 95], textColor: 255, fontStyle: "bold" },
+            alternateRowStyles: { fillColor: [246, 244, 238] },
+          });
+          y = doc.lastAutoTable.finalY + 4;
+        });
+      } else if (structured && structured.kind === "fields" && structured.pairs.length) {
+        doc.autoTable({
+          startY: y,
+          body: structured.pairs.map(([k, v]) => [k, v]),
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 7.5, cellPadding: 1.5, textColor: [27, 27, 23], overflow: "linebreak" },
+          columnStyles: { 0: { fontStyle: "bold", cellWidth: 42, textColor: [31, 58, 95] } },
+          theme: "grid",
+        });
+        y = doc.lastAutoTable.finalY + 4;
+      } else {
+        const bodyText = (structured && structured.text ? structured.text : secText || "").trim();
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(27, 27, 23);
+        const lines = doc.splitTextToSize(bodyText, contentW - 4);
+        lines.forEach((line) => {
+          addPageIfNeeded(4.5);
+          doc.text(line, margin + 2, y);
+          y += 4.5;
+        });
+        y += 3;
+      }
     });
 
     doc.setDrawColor(214, 210, 194);
@@ -480,6 +549,8 @@ function downloadPdf() {
 
 function downloadMarkdown() {
   if (!allCases.length) return;
+  const mdEscape = (v) => String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+
   const lines = [
     "# Iudicium — Quick Search Results",
     "",
@@ -493,27 +564,49 @@ function downloadMarkdown() {
   allCases.forEach((c, i) => {
     lines.push(`## ${i + 1}. ${c.case_type || ""} ${c.case_no || ""}/${c.case_year || ""}`);
     lines.push("");
-    lines.push(`| Field | Value |`);
-    lines.push(`|-------|-------|`);
-    lines.push(`| **Petitioner** | ${c.petitioner || "—"} |`);
-    lines.push(`| **Respondent** | ${c.respondent || "—"} |`);
-    lines.push(`| **Case Type** | ${c.case_type || "—"} |`);
-    lines.push(`| **Case No / Year** | ${c.case_no || "—"} / ${c.case_year || "—"} |`);
+    lines.push(`**${c.petitioner || "—"}** v/s **${c.respondent || "—"}**`);
     lines.push("");
-    if (c.case_information) {
-      lines.push("### Case Information");
-      lines.push("");
-      lines.push(c.case_information.trim());
+    if (c.judgment_pdf) {
+      lines.push(`**Judgment PDF:** [${c.judgment_pdf}](pdfs/${c.judgment_pdf}) *(inside the downloaded .zip)*`);
       lines.push("");
     }
-    const sections = Object.entries(c.sections || {});
-    sections.forEach(([name, text]) => {
-      if (!text || !text.trim()) return;
-      lines.push(`### ${name}`);
+
+    collectSections(c).forEach(([secName, secText, structured]) => {
+      lines.push(`### ${secName}`);
       lines.push("");
-      lines.push(text.trim());
-      lines.push("");
+
+      if (structured && structured.kind === "tables" && structured.tables.length) {
+        structured.tables.forEach((table) => {
+          if (table.title) {
+            lines.push(`**${table.title}**`);
+            lines.push("");
+          }
+          const cols = tableColumns(table);
+          if (cols.length && (table.rows || []).length) {
+            lines.push(`| ${cols.map(mdEscape).join(" | ")} |`);
+            lines.push(`|${cols.map(() => "---").join("|")}|`);
+            table.rows.forEach((row) => {
+              lines.push(`| ${cols.map((h) => mdEscape(row[h])).join(" | ")} |`);
+            });
+            lines.push("");
+          }
+        });
+      } else if (structured && structured.kind === "fields" && structured.pairs.length) {
+        lines.push("| Field | Value |");
+        lines.push("|-------|-------|");
+        structured.pairs.forEach(([k, v]) => {
+          lines.push(`| **${mdEscape(k)}** | ${mdEscape(v)} |`);
+        });
+        lines.push("");
+      } else {
+        const text = (structured && structured.text ? structured.text : secText || "").trim();
+        if (text) {
+          lines.push(text);
+          lines.push("");
+        }
+      }
     });
+
     lines.push("---", "");
   });
   triggerDownload(lines.join("\n"), "case.md", "text/markdown;charset=utf-8;");

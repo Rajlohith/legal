@@ -24,7 +24,12 @@ from scraper.captcha import solve_captcha
 from scraper.table_utils import find_judgments_table
 from scraper.text_utils import sanitize_filename_part, case_identity
 from scraper.date_utils import split_date_range
-from scraper.case_extraction import extract_case_information_text, extract_case_sections
+from scraper.case_extraction import (
+    extract_case_information_text,
+    extract_case_information_structured,
+    extract_case_sections,
+    extract_case_sections_structured,
+)
 from scraper.pdf_capture import fetch_judgment_pdf
 from excel.writer import write_combined_workbook
 
@@ -73,7 +78,7 @@ class SearchEngine:
             petitioner_name=None, respondent_name=None,
             petitioner_adv=None, respondent_adv=None,
             judge=None, author_judge=None, coram=None, report_type=None,
-            pdf_dir=None):
+            pdf_dir=None, included_sections=None):
         """
         aliases: list[str] -- entity names to loop the search over, one
                  job per alias per date window. Each alias is placed
@@ -182,6 +187,7 @@ class SearchEngine:
                         safe_alias, range_label,
                         results_holder := {"duplicates": 0},
                         pdf_dir,
+                        included_sections,
                     )
                     duplicates_skipped += results_holder["duplicates"]
 
@@ -216,7 +222,7 @@ class SearchEngine:
     def _run_one_job(self, page, context, alias, alias_field, static_fields,
                       from_date, to_date,
                       seen_cases, collected_cases, safe_alias, range_label,
-                      results_holder, pdf_dir=None):
+                      results_holder, pdf_dir=None, included_sections=None):
         # Navigate back to the search form before each job so the
         # previous results don't block the form fields.
         self.log("Reloading search form...")
@@ -295,7 +301,9 @@ class SearchEngine:
 
             seen_cases.add(identity)
             case_info_text = ""
+            case_info_structured = None
             sections_data = {}
+            sections_structured = {}
             judgment_pdf = None
             case_button = case_row_el.locator('button[onclick*="casedetails"]').first
             case_ref = sanitize_filename_part(
@@ -314,9 +322,26 @@ class SearchEngine:
                     case_page = new_page_info.value
                     case_page.wait_for_load_state("domcontentloaded")
                     case_page.wait_for_timeout(1500)
-                    case_info_text = extract_case_information_text(case_page, log=self.log)
-                    sections_data = extract_case_sections(case_page, log=self.log)
-                    if pdf_dir is not None:
+
+                    want_case_info = included_sections is None or "Case Information" in included_sections
+                    want_judgment_pdf = included_sections is None or "Judgment PDF" in included_sections
+
+                    if want_case_info:
+                        case_info_text = extract_case_information_text(case_page, log=self.log)
+                        case_info_structured = extract_case_information_structured(case_page, log=self.log)
+
+                    sections_data = extract_case_sections(
+                        case_page, log=self.log, included_sections=included_sections
+                    )
+                    display_case_ref = (
+                        f"{base_row.get('Case Type', '')} "
+                        f"{base_row.get('Case No', '')}/{base_row.get('Case Year', '')}"
+                    ).strip()
+                    sections_structured = extract_case_sections_structured(
+                        case_page, case_ref=display_case_ref, log=self.log,
+                        included_sections=included_sections,
+                    )
+                    if pdf_dir is not None and want_judgment_pdf:
                         judgment_pdf = fetch_judgment_pdf(
                             context, case_page, pdf_dir, case_ref, log=self.log
                         )
@@ -328,7 +353,9 @@ class SearchEngine:
                 {
                     "base_row": base_row,
                     "case_info_text": case_info_text,
+                    "case_info_structured": case_info_structured,
                     "sections_data": sections_data,
+                    "sections_structured": sections_structured,
                     "judgment_pdf": judgment_pdf,
                 }
             )

@@ -82,6 +82,12 @@ class SearchCriteria(BaseModel):
     respondent_adv: Optional[str] = None
     report_type: Optional[str] = None
 
+    included_sections: Optional[List[str]] = Field(
+        default=None,
+        description="Which sections to extract/include (see /api/form-options' "
+                    "'sections' list). Omit or null = include everything.",
+    )
+
     output_filename: Optional[str] = None
 
 
@@ -98,5 +104,10 @@ class CaseNumberSearchCriteria(BaseModel):
     case_type: str = Field(..., description="Case type code, e.g. 156")
     case_no: str = Field(..., description="Digits only, max 6")
     case_year: str = Field(..., description="e.g. 2024")
+
+    included_sections: Optional[List[str]] = Field(
+        default=None,
+        description="Which sections to extract/include. Omit or null = everything.",
+    )
 
     output_filename: Optional[str] = None

@@ -31,6 +31,7 @@ from config import (
     CASE_YEARS,
     CORAM_OPTIONS,
     REPORT_TYPE_OPTIONS,
+    SECTION_ORDER,
 )
 
 from backend.llm import LlmError, generate
@@ -56,6 +57,9 @@ TEXT_FIELDS = (
     "judge",
     "author_judge",
 )
+SECTION_NAMES = ["Case Information", "Judgment PDF"] + [name for _id, name in SECTION_ORDER]
+SECTION_NAMES_LOWER = {n.lower(): n for n in SECTION_NAMES}
+
 ALL_FIELDS = (
     "db_bench",
     "case_type",
@@ -67,6 +71,7 @@ ALL_FIELDS = (
     "report_type",
     "aliases",
     "alias_field",
+    "included_sections",
 ) + TEXT_FIELDS
 
 DATE_RE = re.compile(r"^\d{2}-\d{2}-\d{4}$")
@@ -136,6 +141,15 @@ Allowed keys:
   "aliases": array of strings -- ONLY when the person wants several different
              parties/entities searched one after another in one run
   "alias_field": "respondname" | "petname" -- which side the aliases are on
+  "included_sections": array of section names -- ONLY when the person
+             explicitly limits what data they want (e.g. "just the daily
+             orders and the judgment PDFs"). Valid names:
+             {', '.join(SECTION_NAMES)}.
+             Map loose phrasings to these exact names
+             ("orders" -> "Daily Orders Information", "the pdf" ->
+             "Judgment PDF", "parties" -> "Party Information"). If they
+             never limit it, OMIT this key -- everything is included by
+             default.
 
 When a person mentions ONE party ("cases against X", "X vs State") put it in
 petitioner_name / respondent_name, not aliases. "against X" / "vs X" usually
@@ -269,6 +283,18 @@ def normalise_fields(raw):
             af = _clean(raw.get("alias_field"))
             fields["alias_field"] = af if af in ("respondname", "petname") else "respondname"
 
+    sections = raw.get("included_sections")
+    if isinstance(sections, list):
+        valid = []
+        for s in sections:
+            name = SECTION_NAMES_LOWER.get(_clean(s).lower())
+            if name and name not in valid:
+                valid.append(name)
+            elif _clean(s):
+                warnings.append(f"Ignored unknown section '{_clean(s)}'.")
+        if valid:
+            fields["included_sections"] = valid
+
     return fields, warnings
 
 
@@ -298,11 +324,12 @@ def missing_requirements(fields):
 
 def choose_mode(fields):
     """'quick' when the request is exactly bench + case identity and nothing
-    else; 'detailed' for everything that needs the full form."""
+    else; 'detailed' for everything that needs the full form. A section
+    filter doesn't change which form is needed, so it's not an 'extra'."""
     has_identity = all(k in fields for k in ("case_type", "case_no", "case_year"))
     extras = [
         k for k in fields
-        if k not in ("db_bench", "case_type", "case_no", "case_year")
+        if k not in ("db_bench", "case_type", "case_no", "case_year", "included_sections")
     ]
     if has_identity and not extras:
         return "quick"
@@ -345,6 +372,8 @@ def describe_fields(fields):
     if "aliases" in fields:
         side = "respondent" if fields.get("alias_field", "respondname") == "respondname" else "petitioner"
         add(f"Aliases ({side})", ", ".join(fields["aliases"]))
+    if "included_sections" in fields:
+        add("Sections", ", ".join(fields["included_sections"]))
     return out
 
 
@@ -440,12 +469,15 @@ def build_search_payloads(fields):
     for /api/search or /api/case-number-search."""
     mode = choose_mode(fields)
     if mode == "quick":
-        return mode, {
+        body = {
             "db_bench": fields["db_bench"],
             "case_type": fields["case_type"],
             "case_no": fields["case_no"],
             "case_year": fields["case_year"],
         }
+        if "included_sections" in fields:
+            body["included_sections"] = fields["included_sections"]
+        return mode, body
     body = {"db_bench": fields["db_bench"]}
     for k in ALL_FIELDS:
         if k in fields and k != "db_bench":

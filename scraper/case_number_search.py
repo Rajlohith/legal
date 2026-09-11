@@ -27,7 +27,12 @@ from config import (
 )
 from scraper.captcha import solve_captcha
 from scraper.text_utils import sanitize_filename_part, clean_text
-from scraper.case_extraction import extract_case_information_text, extract_case_sections
+from scraper.case_extraction import (
+    extract_case_information_text,
+    extract_case_information_structured,
+    extract_case_sections,
+    extract_case_sections_structured,
+)
 from scraper.pdf_capture import fetch_judgment_pdf
 from excel.writer import write_combined_workbook
 
@@ -58,7 +63,8 @@ class CaseNumberSearchEngine:
     # Public entry point
     # ------------------------------------------------------------------
 
-    def run(self, bench_value, bench_name, case_type, case_no, case_year, output_path=None, pdf_dir=None):
+    def run(self, bench_value, bench_name, case_type, case_no, case_year, output_path=None,
+            pdf_dir=None, included_sections=None):
         """
         bench_value: "B" | "D" | "K"
         case_type/case_no/case_year: all required -- this page has no
@@ -102,7 +108,7 @@ class CaseNumberSearchEngine:
                     Path(debug_filename).write_text(page.content(), encoding="utf-8")
                     self.log(f"Saved {debug_filename} for inspection.")
                 else:
-                    collected_cases = self._collect_results(page, context, results, pdf_dir)
+                    collected_cases = self._collect_results(page, context, results, pdf_dir, included_sections)
                     if collected_cases:
                         self.log("Found the case -- pulling full details...")
                     else:
@@ -132,7 +138,7 @@ class CaseNumberSearchEngine:
     # Reading the single-case summary block + its detail popup
     # ------------------------------------------------------------------
 
-    def _collect_results(self, page, context, results, pdf_dir=None):
+    def _collect_results(self, page, context, results, pdf_dir=None, included_sections=None):
         """
         A successful search renders one case's summary directly into
         #dynamic-content-year: a heading, then a series of
@@ -169,11 +175,14 @@ class CaseNumberSearchEngine:
         # Fallback text if the detail popup can't be opened/parsed --
         # at least the summary block's own fields are preserved.
         case_info_text = "\n".join(f"{label}: {value}" for label, value in fields.items() if value)
+        case_info_structured = {"kind": "fields", "pairs": list(fields.items())} if fields else None
         sections_data = {}
+        sections_structured = {}
         judgment_pdf = None
         case_ref = sanitize_filename_part(
             f"{case_type_abbrev}_{parsed_no}_{parsed_year}".strip("_") or "case"
         )
+        display_case_ref = f"{case_type_abbrev} {parsed_no}/{parsed_year}".strip()
 
         try:
             with context.expect_page(timeout=15000) as new_page_info:
@@ -182,11 +191,26 @@ class CaseNumberSearchEngine:
             case_page = new_page_info.value
             case_page.wait_for_load_state("domcontentloaded")
             case_page.wait_for_timeout(1500)
-            detail_text = extract_case_information_text(case_page, log=self.log)
-            if detail_text:
-                case_info_text = detail_text
-            sections_data = extract_case_sections(case_page, log=self.log)
-            if pdf_dir is not None:
+
+            want_case_info = included_sections is None or "Case Information" in included_sections
+            want_judgment_pdf = included_sections is None or "Judgment PDF" in included_sections
+
+            if want_case_info:
+                detail_text = extract_case_information_text(case_page, log=self.log)
+                if detail_text:
+                    case_info_text = detail_text
+                detail_structured = extract_case_information_structured(case_page, log=self.log)
+                if detail_structured:
+                    case_info_structured = detail_structured
+
+            sections_data = extract_case_sections(
+                case_page, log=self.log, included_sections=included_sections
+            )
+            sections_structured = extract_case_sections_structured(
+                case_page, case_ref=display_case_ref, log=self.log,
+                included_sections=included_sections,
+            )
+            if pdf_dir is not None and want_judgment_pdf:
                 judgment_pdf = fetch_judgment_pdf(
                     context, case_page, pdf_dir, case_ref, log=self.log
                 )
@@ -198,7 +222,9 @@ class CaseNumberSearchEngine:
             {
                 "base_row": base_row,
                 "case_info_text": case_info_text,
+                "case_info_structured": case_info_structured,
                 "sections_data": sections_data,
+                "sections_structured": sections_structured,
                 "judgment_pdf": judgment_pdf,
             }
         ]

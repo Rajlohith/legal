@@ -32,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from config import BENCH_OPTIONS, CASE_TYPES, CASE_YEARS, CORAM_OPTIONS, REPORT_TYPE_OPTIONS
+from config import BENCH_OPTIONS, CASE_TYPES, CASE_YEARS, CORAM_OPTIONS, REPORT_TYPE_OPTIONS, SECTION_ORDER
 from scraper.judge_lookup import fetch_judge_options
 
 from backend.ai_fill import AiFillError, ai_fill_form
@@ -95,6 +95,7 @@ async def form_options():
         "case_years": [y for y in CASE_YEARS if y],
         "coram": [{"value": v, "label": k} for k, v in CORAM_OPTIONS.items()],
         "report_type": [{"value": v, "label": k} for k, v in REPORT_TYPE_OPTIONS.items()],
+        "sections": ["Case Information", "Judgment PDF"] + [name for _id, name in SECTION_ORDER],
     }
 
 
