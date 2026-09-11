@@ -25,6 +25,7 @@ from scraper.table_utils import find_judgments_table
 from scraper.text_utils import sanitize_filename_part, case_identity
 from scraper.date_utils import split_date_range
 from scraper.case_extraction import extract_case_information_text, extract_case_sections
+from scraper.pdf_capture import fetch_judgment_pdf
 from excel.writer import write_combined_workbook
 
 
@@ -71,7 +72,8 @@ class SearchEngine:
             case_type=None, case_no=None, case_year=None,
             petitioner_name=None, respondent_name=None,
             petitioner_adv=None, respondent_adv=None,
-            judge=None, author_judge=None, coram=None, report_type=None):
+            judge=None, author_judge=None, coram=None, report_type=None,
+            pdf_dir=None):
         """
         aliases: list[str] -- entity names to loop the search over, one
                  job per alias per date window. Each alias is placed
@@ -179,6 +181,7 @@ class SearchEngine:
                         seen_cases, collected_cases,
                         safe_alias, range_label,
                         results_holder := {"duplicates": 0},
+                        pdf_dir,
                     )
                     duplicates_skipped += results_holder["duplicates"]
 
@@ -213,7 +216,7 @@ class SearchEngine:
     def _run_one_job(self, page, context, alias, alias_field, static_fields,
                       from_date, to_date,
                       seen_cases, collected_cases, safe_alias, range_label,
-                      results_holder):
+                      results_holder, pdf_dir=None):
         # Navigate back to the search form before each job so the
         # previous results don't block the form fields.
         self.log("Reloading search form...")
@@ -293,7 +296,15 @@ class SearchEngine:
             seen_cases.add(identity)
             case_info_text = ""
             sections_data = {}
+            judgment_pdf = None
             case_button = case_row_el.locator('button[onclick*="casedetails"]').first
+            case_ref = sanitize_filename_part(
+                "_".join(
+                    str(base_row.get(f, "")).strip()
+                    for f in ("Case Type", "Case No", "Case Year")
+                    if base_row.get(f)
+                ) or f"case_{len(collected_cases) + 1}"
+            )
 
             if case_button.count() > 0:
                 try:
@@ -305,6 +316,10 @@ class SearchEngine:
                     case_page.wait_for_timeout(1500)
                     case_info_text = extract_case_information_text(case_page, log=self.log)
                     sections_data = extract_case_sections(case_page, log=self.log)
+                    if pdf_dir is not None:
+                        judgment_pdf = fetch_judgment_pdf(
+                            context, case_page, pdf_dir, case_ref, log=self.log
+                        )
                     case_page.close()
                 except Exception as e:
                     self.log(f"Could not open/parse case details for row {i + 1}: {e}")
@@ -314,6 +329,7 @@ class SearchEngine:
                     "base_row": base_row,
                     "case_info_text": case_info_text,
                     "sections_data": sections_data,
+                    "judgment_pdf": judgment_pdf,
                 }
             )
 

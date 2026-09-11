@@ -279,6 +279,11 @@ function onSearchDone(payload) {
 
   const downloadHref = `/outputs/${encodeURIComponent(payload.output_filename)}`;
   $("downloadLink").href = downloadHref;
+  const isZip = payload.output_filename.toLowerCase().endsWith(".zip");
+  $("downloadLink").innerHTML = isZip
+    ? '<i data-lucide="folder-archive"></i> Excel + Judgment PDFs (.zip)'
+    : '<i data-lucide="file-spreadsheet"></i> Excel';
+  if (window.lucide) lucide.createIcons();
   const summaryText = `${payload.case_count} unique case(s) found, ${payload.duplicates_skipped} duplicate(s) skipped.`;
   $("resultsSummary").textContent = summaryText;
 
@@ -521,6 +526,7 @@ function renderResults(cases) {
         <div class="case-card__title">${escapeHtml(c.case_type)} ${escapeHtml(c.case_no)}/${escapeHtml(c.case_year)}</div>
         <div class="case-card__subtitle">${escapeHtml(c.petitioner)} v/s ${escapeHtml(c.respondent)}</div>
         <span class="case-card__badge">${c._sectionCount} section${c._sectionCount !== 1 ? "s" : ""} with data</span>
+        ${c.judgment_pdf ? '<span class="case-card__badge" title="' + escapeHtml(c.judgment_pdf) + '"><i data-lucide="file-text"></i> Judgment PDF in download</span>' : ""}
       </div>
       <div class="case-card__chevron"><i data-lucide="chevron-right"></i></div>
     `;
@@ -768,6 +774,16 @@ function downloadPdf() {
     doc.text(`${c.petitioner || "—"} v/s ${c.respondent || "—"}`, margin + 2, y);
     y += 7;
 
+    if (c.judgment_pdf) {
+      addPageIfNeeded(6);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(140, 109, 47);
+      doc.text(`Judgment PDF: pdfs/${c.judgment_pdf}  (included in the Excel .zip download)`, margin, y);
+      doc.setFont("helvetica", "normal");
+      y += 6;
+    }
+
     // Sections
     const allSections = [];
     if (c.case_information) allSections.push(["Case Information", c.case_information]);
@@ -834,6 +850,9 @@ function downloadMarkdown() {
     lines.push(`| **Respondent** | ${c.respondent || "—"} |`);
     lines.push(`| **Case Type** | ${c.case_type || "—"} |`);
     lines.push(`| **Case No / Year** | ${c.case_no || "—"} / ${c.case_year || "—"} |`);
+    if (c.judgment_pdf) {
+      lines.push(`| **Judgment PDF** | [${c.judgment_pdf}](pdfs/${c.judgment_pdf}) *(inside the downloaded .zip)* |`);
+    }
     lines.push("");
     if (c.case_information) {
       lines.push("### Case Information");
@@ -914,6 +933,10 @@ function restorePersistedResults() {
 
     allCases = data.cases;
     $("downloadLink").href = data.downloadHref || "#";
+    const isZip = (data.filename || "").toLowerCase().endsWith(".zip");
+    $("downloadLink").innerHTML = isZip
+      ? '<i data-lucide="folder-archive"></i> Excel + Judgment PDFs (.zip)'
+      : '<i data-lucide="file-spreadsheet"></i> Excel';
     $("resultsSummary").textContent = (data.summary || "") + " (restored from this session)";
 
     resetFilterState();

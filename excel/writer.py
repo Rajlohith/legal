@@ -180,6 +180,16 @@ def _write_case_sheet(ws, case):
             }
         )
 
+    judgment_pdf = case.get("judgment_pdf")
+    if judgment_pdf:
+        detail_rows.append(
+            {
+                "Section": "Judgment PDF",
+                DETAILS_COLUMN: judgment_pdf,
+                "_hyperlink": f"pdfs/{judgment_pdf}",
+            }
+        )
+
     for section_name, section_text in case.get("sections_data", {}).items():
         if section_text and section_text.strip():
             detail_rows.append(
@@ -200,6 +210,10 @@ def _write_case_sheet(ws, case):
 
         det_cell = ws.cell(row=current_row, column=2, value=details_val)
         _data_style(det_cell, bg=bg, wrap=True)
+        hyperlink = row.get("_hyperlink")
+        if hyperlink:
+            det_cell.hyperlink = hyperlink
+            det_cell.font = Font(color="1F3A5F", underline="single", size=10, name="Calibri")
 
         # Estimate row height: ~15pt per ~100 chars, max 400
         char_len = len(details_val or "")

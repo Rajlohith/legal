@@ -28,6 +28,7 @@ from config import (
 from scraper.captcha import solve_captcha
 from scraper.text_utils import sanitize_filename_part, clean_text
 from scraper.case_extraction import extract_case_information_text, extract_case_sections
+from scraper.pdf_capture import fetch_judgment_pdf
 from excel.writer import write_combined_workbook
 
 # "WP 123/2022" -> ("WP", "123", "2022")
@@ -57,7 +58,7 @@ class CaseNumberSearchEngine:
     # Public entry point
     # ------------------------------------------------------------------
 
-    def run(self, bench_value, bench_name, case_type, case_no, case_year, output_path=None):
+    def run(self, bench_value, bench_name, case_type, case_no, case_year, output_path=None, pdf_dir=None):
         """
         bench_value: "B" | "D" | "K"
         case_type/case_no/case_year: all required -- this page has no
@@ -101,7 +102,7 @@ class CaseNumberSearchEngine:
                     Path(debug_filename).write_text(page.content(), encoding="utf-8")
                     self.log(f"Saved {debug_filename} for inspection.")
                 else:
-                    collected_cases = self._collect_results(page, context, results)
+                    collected_cases = self._collect_results(page, context, results, pdf_dir)
                     if collected_cases:
                         self.log("Found the case -- pulling full details...")
                     else:
@@ -131,7 +132,7 @@ class CaseNumberSearchEngine:
     # Reading the single-case summary block + its detail popup
     # ------------------------------------------------------------------
 
-    def _collect_results(self, page, context, results):
+    def _collect_results(self, page, context, results, pdf_dir=None):
         """
         A successful search renders one case's summary directly into
         #dynamic-content-year: a heading, then a series of
@@ -169,6 +170,10 @@ class CaseNumberSearchEngine:
         # at least the summary block's own fields are preserved.
         case_info_text = "\n".join(f"{label}: {value}" for label, value in fields.items() if value)
         sections_data = {}
+        judgment_pdf = None
+        case_ref = sanitize_filename_part(
+            f"{case_type_abbrev}_{parsed_no}_{parsed_year}".strip("_") or "case"
+        )
 
         try:
             with context.expect_page(timeout=15000) as new_page_info:
@@ -181,6 +186,10 @@ class CaseNumberSearchEngine:
             if detail_text:
                 case_info_text = detail_text
             sections_data = extract_case_sections(case_page, log=self.log)
+            if pdf_dir is not None:
+                judgment_pdf = fetch_judgment_pdf(
+                    context, case_page, pdf_dir, case_ref, log=self.log
+                )
             case_page.close()
         except Exception as e:
             self.log(f"Could not open/parse the full case details popup: {e}")
@@ -190,6 +199,7 @@ class CaseNumberSearchEngine:
                 "base_row": base_row,
                 "case_info_text": case_info_text,
                 "sections_data": sections_data,
+                "judgment_pdf": judgment_pdf,
             }
         ]
 

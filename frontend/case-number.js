@@ -173,6 +173,11 @@ function onSearchDone(payload) {
 
   const downloadHref = `/outputs/${encodeURIComponent(payload.output_filename)}`;
   $("downloadLink").href = downloadHref;
+  const isZip = payload.output_filename.toLowerCase().endsWith(".zip");
+  $("downloadLink").innerHTML = isZip
+    ? '<i data-lucide="folder-archive"></i> Excel + Judgment PDFs (.zip)'
+    : '<i data-lucide="file-spreadsheet"></i> Excel';
+  if (window.lucide) lucide.createIcons();
   const summaryText = payload.case_count
     ? `${payload.case_count} case(s) found.`
     : "No case matched that Case Type / Number / Year.";
@@ -210,6 +215,7 @@ function renderResults(cases) {
       <div>
         <div class="case-card__title">${escapeHtml(c.case_type)} ${escapeHtml(c.case_no)}/${escapeHtml(c.case_year)}</div>
         <div class="case-card__subtitle">${escapeHtml(c.petitioner)} v/s ${escapeHtml(c.respondent)}</div>
+        ${c.judgment_pdf ? '<span class="case-card__badge" title="' + escapeHtml(c.judgment_pdf) + '"><i data-lucide="file-text"></i> Judgment PDF in download</span>' : ""}
       </div>
       <div class="case-card__chevron"><i data-lucide="chevron-right"></i></div>
     `;
@@ -565,6 +571,10 @@ function restorePersistedResults() {
 
     allCases = data.cases;
     $("downloadLink").href = data.downloadHref || "#";
+    const isZip = (data.filename || "").toLowerCase().endsWith(".zip");
+    $("downloadLink").innerHTML = isZip
+      ? '<i data-lucide="folder-archive"></i> Excel + Judgment PDFs (.zip)'
+      : '<i data-lucide="file-spreadsheet"></i> Excel';
     $("resultsSummary").textContent = (data.summary || "") + " (restored from this session)";
     renderResults(allCases);
     $("resultsCard").hidden = false;
