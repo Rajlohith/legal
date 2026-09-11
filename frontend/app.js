@@ -879,6 +879,38 @@ $("downloadMdBtn").addEventListener("click", downloadMarkdown);
 // Restore persisted results on page load
 // ------------------------------------------------------------------
 
+// Prefill from the AI Assistant's "Edit in form" button.
+function applyAssistantPrefill() {
+  let f;
+  try {
+    const raw = sessionStorage.getItem("assistantPrefill");
+    if (!raw) return;
+    sessionStorage.removeItem("assistantPrefill");
+    f = JSON.parse(raw);
+  } catch (e) { return; }
+  if (!f) return;
+
+  const set = (id, v) => { if (v != null && $(id)) $(id).value = v; };
+  set("dbBench", f.db_bench);
+  set("caseType", f.case_type);
+  set("caseNo", f.case_no);
+  set("caseYear", f.case_year);
+  set("petName", f.petitioner_name);
+  set("respName", f.respondent_name);
+  set("petAdv", f.petitioner_adv);
+  set("respAdv", f.respondent_adv);
+  set("coram", f.coram);
+  if (f.from_date) set("fromDate", ddmmyyyyToInput(f.from_date));
+  if (f.to_date) set("toDate", ddmmyyyyToInput(f.to_date));
+  if (Array.isArray(f.aliases) && f.aliases.length) set("aliases", f.aliases.join("\n"));
+  set("aliasField", f.alias_field);
+  if (f.report_type) {
+    const radio = document.querySelector(`input[name="reportType"][value="${f.report_type}"]`);
+    if (radio) radio.checked = true;
+  }
+  if (f.db_bench && $("dbBench")) $("dbBench").dispatchEvent(new Event("change"));
+}
+
 function restorePersistedResults() {
   try {
     const stored = sessionStorage.getItem(RESULTS_KEY);
@@ -904,7 +936,7 @@ function restorePersistedResults() {
 // ------------------------------------------------------------------
 
 lucide.createIcons();
-loadFormOptions();
+loadFormOptions().then(applyAssistantPrefill);
 connectWs();
 restorePersistedResults();
 

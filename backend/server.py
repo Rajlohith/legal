@@ -11,6 +11,8 @@ Routes:
   GET  /api/form-options    -- static dropdown data (case types, years, coram, bench, report type)
   POST /api/judges          -- {db_bench} -> live Judge/Author Judge options for that bench
   POST /api/ai-fill         -- {text} -> LLM-interpreted structured field values, for review
+  POST /api/assistant       -- {messages, fields} -> reply + validated search fields + readiness
+  POST /api/assistant/run   -- {fields} -> starts the right scraper (quick vs detailed)
   POST /api/search          -- {..SearchCriteria..} -> starts the Playwright+Tesseract scraper
   POST /api/search/stop     -- requests early stop of the running search
   WS   /ws/logs             -- live log lines / progress / final results
@@ -33,11 +35,22 @@ from fastapi.staticfiles import StaticFiles
 from config import BENCH_OPTIONS, CASE_TYPES, CASE_YEARS, CORAM_OPTIONS, REPORT_TYPE_OPTIONS
 from scraper.judge_lookup import fetch_judge_options
 
-from backend.ai_fill import AiFillError, ai_fill_form, chat_reply
+from backend.ai_fill import AiFillError, ai_fill_form
+from backend.assistant import (
+    LlmError,
+    assistant_turn,
+    build_search_payloads,
+    missing_requirements,
+    normalise_fields,
+)
 from backend.job_manager import OUTPUT_DIR, job_manager
 from backend.schemas import (
     AiFillRequest,
     AiFillResponse,
+    AssistantRequest,
+    AssistantResponse,
+    AssistantRunRequest,
+    AssistantRunResponse,
     CaseNumberSearchCriteria,
     ChatRequest,
     ChatResponse,
@@ -116,18 +129,57 @@ async def ai_fill(request: AiFillRequest):
 
 
 # ----------------------------------------------------------------------
-# Homepage chatbot
+# Assistant: chat -> validated search parameters -> scraper
 # ----------------------------------------------------------------------
 
 
+@app.post("/api/assistant", response_model=AssistantResponse)
+async def assistant(request: AssistantRequest):
+    try:
+        result = await assistant_turn(
+            [m.model_dump() for m in request.messages], known_fields=request.fields,
+        )
+    except LlmError as e:
+        fields, _ = normalise_fields(request.fields)
+        return AssistantResponse(
+            reply=f"Sorry, I couldn't reach the AI model: {e}",
+            fields=fields,
+            missing=missing_requirements(fields),
+            error=str(e),
+        )
+    return AssistantResponse(**result)
+
+
+@app.post("/api/assistant/run", response_model=AssistantRunResponse)
+async def assistant_run(request: AssistantRunRequest):
+    fields, _ = normalise_fields(request.fields)
+    missing = missing_requirements(fields)
+    if missing:
+        return AssistantRunResponse(
+            started=False, message="Can't run yet — still need " + "; ".join(missing) + ".",
+        )
+    mode, body = build_search_payloads(fields)
+    if request.output_filename:
+        body["output_filename"] = request.output_filename
+    if mode == "quick":
+        started, message = job_manager.start_case_number(
+            body, tesseract_cmd=TESSERACT_CMD, headless=SCRAPER_HEADLESS,
+        )
+    else:
+        started, message = job_manager.start(
+            body, tesseract_cmd=TESSERACT_CMD, headless=SCRAPER_HEADLESS,
+        )
+    return AssistantRunResponse(started=started, message=message, mode=mode)
+
+
+# Legacy route kept for any old client: same assistant, reply only.
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        reply = await chat_reply([m.model_dump() for m in request.messages])
-    except AiFillError as e:
+        result = await assistant_turn([m.model_dump() for m in request.messages])
+    except LlmError as e:
         return ChatResponse(reply=f"Sorry, I couldn't reach the AI assistant: {e}")
-
-    return ChatResponse(reply=reply)
+    return ChatResponse(reply=result["reply"])
 
 
 # ----------------------------------------------------------------------

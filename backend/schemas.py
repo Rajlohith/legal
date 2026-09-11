@@ -25,6 +25,33 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
+
+class AssistantRequest(BaseModel):
+    messages: List[ChatMessage] = Field(..., description="Full conversation so far, oldest first")
+    fields: dict = Field(default_factory=dict, description="Validated fields from the previous turn")
+
+
+class AssistantResponse(BaseModel):
+    reply: str
+    fields: dict
+    display: List[dict] = Field(default_factory=list)
+    missing: List[str] = Field(default_factory=list)
+    ready: bool = False
+    mode: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
+    error: Optional[str] = None
+
+
+class AssistantRunRequest(BaseModel):
+    fields: dict
+    output_filename: Optional[str] = None
+
+
+class AssistantRunResponse(BaseModel):
+    started: bool
+    message: str
+    mode: Optional[str] = None
+
 class JudgeLookupRequest(BaseModel):
     db_bench: str = Field(..., description='"B" | "D" | "K"')
 
