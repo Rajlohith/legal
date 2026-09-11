@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Iudicium — Modern Web UI
+
+The Next.js front end for Iudicium's modern web UI. It talks to the root-level FastAPI backend (`backend.py`) over REST, submits case searches as background jobs, and polls for progress and results. See the [project README](../README.md) for the full system overview, including the alternate classic UI.
+
+## Prerequisites
+
+* Node.js 20 or later
+* The backend running locally (`uvicorn backend:app --reload --port 8000` from the project root — see the project README's [Running the Application](../README.md#running-the-application) section)
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Point the front end at the backend. Create `frontend/.env.local`:
+
+```text
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000` in a browser. The page auto-updates as `app/page.tsx` is edited.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```text
+frontend/
+├── app/
+│   ├── page.tsx      # main search UI: form state, job polling, results
+│   └── layout.tsx     # root layout
+├── lib/
+│   └── api.ts           # typed client for the backend's REST API
+├── public/                # static assets
+└── package.json
+```
 
-## Learn More
+## Available Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Build a production bundle |
+| `npm run start` | Serve the production build |
+| `npm run lint` | Run ESLint |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* This UI uses `NEXT_PUBLIC_API_URL` for every API call (see `lib/api.ts`); without it, requests will fail.
+* This front end does not include the AI assistant chat or live WebSocket log streaming found in the classic UI — it polls job status over REST instead. For that functionality, run the classic UI described in the project README.
