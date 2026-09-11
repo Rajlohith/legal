@@ -147,13 +147,34 @@ class SearchEngine:
         jobs_done = 0
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=self.headless, args=["--start-maximized"])
-            context = browser.new_context(no_viewport=True)
+            browser = p.chromium.launch(
+                headless=self.headless,
+                args=[
+                    "--start-maximized",
+                    "--disable-blink-features=AutomationControlled",  # Hide that we're automated
+                ]
+            )
+            context = browser.new_context(
+                no_viewport=True,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            )
+            page = context.new_page()
+            page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
             page = context.new_page()
 
             try:
                 self.log("Opening Karnataka Judiciary website...")
-                page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)  # 60 seconds, stop waiting for network to idle
+                for attempt in range(1, 4):  # Try 3 times
+                    try:
+                        page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)
+                        self.log(f"Successfully loaded (attempt {attempt})")
+                        break
+                    except Exception as e:
+                        self.log(f"Attempt {attempt} failed: {str(e)}")
+                        if attempt == 3:
+                            raise
+                        import time
+                        time.sleep(2)  # Wait 2 seconds before retrying
 
                 self.log(f"Selecting {bench_name}...")
                 page.locator("#db_bench").select_option(bench_value)
