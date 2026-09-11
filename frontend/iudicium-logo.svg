@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#14181F"/>
+  <!-- Pillar -->
+  <line x1="16" y1="5" x2="16" y2="27" stroke="#c4a962" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Base -->
+  <line x1="10" y1="27" x2="22" y2="27" stroke="#c4a962" stroke-width="2" stroke-linecap="round"/>
+  <!-- Crossbeam -->
+  <line x1="3" y1="10" x2="29" y2="10" stroke="#c4a962" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Fulcrum dot -->
+  <circle cx="16" cy="10" r="1.8" fill="#c4a962"/>
+  <!-- Left pan suspension -->
+  <line x1="5.5" y1="10" x2="5.5" y2="17" stroke="#c4a962" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Right pan suspension -->
+  <line x1="26.5" y1="10" x2="26.5" y2="17" stroke="#c4a962" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Left pan arc -->
+  <path d="M2.5 17 Q5.5 21 8.5 17" fill="none" stroke="#c4a962" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Right pan arc -->
+  <path d="M23.5 17 Q26.5 21 29.5 17" fill="none" stroke="#c4a962" stroke-width="1.8" stroke-linecap="round"/>
+</svg>
