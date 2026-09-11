@@ -420,6 +420,50 @@
         </div>
 
       </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__top">
+        <div class="site-footer__links">
+          <a href="https://judiciary.karnataka.gov.in/judgments.php" target="_blank" rel="noopener" class="site-footer__link">
+            Official Judgements Portal
+          </a>
+          <a href="https://github.com/Rajlohith/iudicium" target="_blank" rel="noopener" class="site-footer__link">
+            <i data-lucide="github"></i>
+            GitHub Repository
+          </a>
+        </div>
+        <div class="site-footer__contact">
+          <button class="site-footer__contact-btn" id="contactToggle" aria-expanded="false">
+            <i data-lucide="mail"></i>
+            Contact
+            <i data-lucide="chevron-down" class="contact-chevron"></i>
+          </button>
+          <div class="site-footer__contact-panel" id="contactPanel">
+            <a href="mailto:1337av@gmail.com" class="site-footer__email">
+              <i data-lucide="at-sign"></i>1337av@gmail.com
+            </a>
+            <a href="mailto:rajlohith3@protonmail.ch" class="site-footer__email">
+              <i data-lucide="at-sign"></i>rajlohith3@protonmail.ch
+            </a>
+            <a href="mailto:nikhita.ananthas@gmail.com" class="site-footer__email">
+              <i data-lucide="at-sign"></i>nikhita.ananthas@gmail.com
+            </a>
+            <a href="mailto:roshmtt@gmail.com" class="site-footer__email">
+              <i data-lucide="at-sign"></i>roshmtt@gmail.com
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="site-footer__bottom">
+        <div class="site-footer__disclaimer">
+          <strong>Unofficial student project.</strong> Not affiliated with Karnataka High Court, CMC, NIC, the Centre for e-Governance, or any government body. Always verify results against the official Karnataka High Court portal.
+        </div>
+        <div class="site-footer__copy">
+          &copy; 2026 Adithi V, B R Lohith Raj, Nikitha Anantha Subramanian &amp; Rosh Martin
+        </div>
+      </div>
+    </footer>
+
     </div>
   </div>
 
@@ -436,6 +480,35 @@
       });
     });
   </script>
+  <script>
+    (function () {
+      var wrapper = document.querySelector('.site-footer__contact');
+      var btn = document.getElementById('contactToggle');
+      var panel = document.getElementById('contactPanel');
+      if (!wrapper || !btn || !panel) return;
+      var closeTimer;
+      function openPanel() {
+        clearTimeout(closeTimer);
+        panel.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+      function scheduleClose() {
+        closeTimer = setTimeout(function () {
+          panel.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }, 100);
+      }
+      wrapper.addEventListener('mouseenter', openPanel);
+      wrapper.addEventListener('mouseleave', scheduleClose);
+      // touch fallback
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = panel.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(open));
+      });
+    })();
+  </script>
+
 </body>
 
 </html>
