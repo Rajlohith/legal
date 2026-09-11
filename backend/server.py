@@ -220,6 +220,34 @@ async def search_status():
     return {"is_running": job_manager.is_running}
 
 
+# ----------------------------------------------------------------------
+# Activity-log buffer (server-lifetime persistence for the frontend)
+# ----------------------------------------------------------------------
+
+VALID_LOG_PAGES = {"search", "case_number"}
+
+
+@app.get("/api/logs/{page}")
+async def get_log(page: str):
+    """Return the buffered activity-log entries for *page*.
+
+    ``page`` must be ``search`` or ``case_number``.
+    Each entry: ``{"text": str, "isErr": bool, "ts": str}``.
+    """
+    if page not in VALID_LOG_PAGES:
+        return {"error": f"Unknown page '{page}'. Must be one of: {sorted(VALID_LOG_PAGES)}"}
+    return {"entries": job_manager.get_log(page)}
+
+
+@app.delete("/api/logs/{page}")
+async def clear_log(page: str):
+    """Discard all buffered log entries for *page*."""
+    if page not in VALID_LOG_PAGES:
+        return {"error": f"Unknown page '{page}'."}
+    job_manager.clear_log(page)
+    return {"cleared": True}
+
+
 @app.websocket("/ws/logs")
 async def ws_logs(websocket: WebSocket):
     await websocket.accept()
@@ -253,3 +281,4 @@ async def download_output(filename: str):
 
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+    

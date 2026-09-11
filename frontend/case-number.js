@@ -78,17 +78,32 @@ function handleWsMessage(msg) {
   }
 }
 
-function appendLog(text, isErr) {
+function appendLog(text, isErr, ts) {
   const line = document.createElement("div");
   line.className = "log-line" + (isErr ? " err" : "");
-  const ts = new Date().toLocaleTimeString();
-  line.textContent = `[${ts}] ${text}`;
+  const displayTs = ts || new Date().toLocaleTimeString();
+  line.textContent = `[${displayTs}] ${text}`;
   $("logBox").appendChild(line);
   $("logBox").scrollTop = $("logBox").scrollHeight;
 }
 
-$("clearLogBtn").addEventListener("click", () => {
+async function loadPersistedLog() {
+  try {
+    const res = await fetch("/api/logs/case_number");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data.entries)) return;
+    for (const entry of data.entries) {
+      appendLog(entry.text, entry.isErr, entry.ts);
+    }
+  } catch (e) {
+    // Server may not support this endpoint yet — fail silently.
+  }
+}
+
+$("clearLogBtn").addEventListener("click", async () => {
   $("logBox").innerHTML = "";
+  try { await fetch("/api/logs/case_number", { method: "DELETE" }); } catch (_) {}
 });
 
 // ------------------------------------------------------------------
@@ -116,7 +131,6 @@ $("caseNumberForm").addEventListener("submit", async (e) => {
     return;
   }
 
-  $("logBox").innerHTML = "";
   $("resultsCard").hidden = true;
   $("progressWrap").hidden = false;
   $("progressFill").style.width = "0%";
@@ -567,6 +581,7 @@ lucide.createIcons();
 loadFormOptions().then(applyAssistantPrefill);
 connectWs();
 restorePersistedResults();
+loadPersistedLog();
 
 // Log card folding
 const logCardHeader = document.getElementById('logCardHeader');

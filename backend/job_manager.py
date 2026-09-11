@@ -57,6 +57,11 @@ class JobManager:
         self._subscribers = set()
         self._loop = None
         self.last_result = None
+        # Per-page activity-log buffers.  Entries survive page navigation
+        # for as long as the server process is running.
+        self._log_buffers: dict[str, list] = {"search": [], "case_number": []}
+        self._current_job_type: str | None = None
+        self._MAX_LOG_ENTRIES = 1000
 
     # ------------------------------------------------------------------
     # WebSocket subscription
@@ -75,10 +80,38 @@ class JobManager:
     def unsubscribe(self, queue):
         self._subscribers.discard(queue)
 
+    # ------------------------------------------------------------------
+    # Per-page log buffer (server-lifetime persistence)
+    # ------------------------------------------------------------------
+
+    def get_log(self, page: str) -> list:
+        """Return the buffered log entries for *page* ('search' or 'case_number')."""
+        return list(self._log_buffers.get(page, []))
+
+    def clear_log(self, page: str) -> None:
+        """Discard all buffered log entries for *page*."""
+        if page in self._log_buffers:
+            self._log_buffers[page] = []
+
+    def _store_log(self, msg_type: str, payload: str) -> None:
+        """Append a log or error entry to the current job's buffer."""
+        if not self._current_job_type:
+            return
+        from datetime import datetime
+        is_err = msg_type == "error"
+        text = ("ERROR: " + payload) if is_err else payload
+        entry = {"text": text, "isErr": is_err, "ts": datetime.now().strftime("%H:%M:%S")}
+        buf = self._log_buffers[self._current_job_type]
+        buf.append(entry)
+        if len(buf) > self._MAX_LOG_ENTRIES:
+            self._log_buffers[self._current_job_type] = buf[-self._MAX_LOG_ENTRIES:]
+
     def _broadcast(self, msg_type, payload):
         if self._loop is None:
             return
         message = {"type": msg_type, "payload": payload}
+        if msg_type in ("log", "error"):
+            self._store_log(msg_type, payload)
         for queue in list(self._subscribers):
             self._loop.call_soon_threadsafe(queue.put_nowait, message)
 
@@ -95,6 +128,7 @@ class JobManager:
             if self._is_running:
                 return False, "A search is already running. Stop it first."
             self._is_running = True
+            self._current_job_type = "search"
 
         thread = threading.Thread(
             target=self._run_job, args=(criteria, tesseract_cmd, headless), daemon=True,
@@ -110,6 +144,7 @@ class JobManager:
             if self._is_running:
                 return False, "A search is already running. Stop it first."
             self._is_running = True
+            self._current_job_type = "case_number"
 
         thread = threading.Thread(
             target=self._run_case_number_job, args=(criteria, tesseract_cmd, headless), daemon=True,

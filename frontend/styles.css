@@ -235,6 +235,23 @@ textarea:focus {
   display: grid;
   grid-template-columns: 1fr 220px;
   gap: 10px;
+  align-items: start;
+}
+
+#aliases {
+  height: 45px;
+  min-height: 45px;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  margin: 0;
+  resize: vertical;
+  line-height: 1.2;
+}
+
+#aliasField {
+  height: 45px;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 @media (max-width: 640px) {
@@ -1020,14 +1037,53 @@ body {
   justify-content: center;
 }
 
+/* ---- Hover-to-expand when collapsed ---- */
+.sidebar--collapsed:hover {
+  width: 260px;
+  padding: 24px;
+}
+
+.sidebar--collapsed:hover .sidebar__top {
+  justify-content: space-between;
+}
+
+.sidebar--collapsed:hover .sidebar__brand {
+  display: flex;
+}
+
+.sidebar--collapsed:hover .sidebar__brand .label,
+.sidebar--collapsed:hover .sidebar__link .label,
+.sidebar--collapsed:hover .sidebar__status .label {
+  display: inline;
+}
+
 .sidebar--collapsed:hover .sidebar__toggle {
   display: flex;
   position: static;
   background: transparent;
 }
 
-.sidebar--collapsed:hover .sidebar__brand {
-  display: none;
+.sidebar--collapsed:hover .sidebar__link {
+  justify-content: flex-start;
+  padding: 10px 14px;
+}
+
+.sidebar--collapsed:hover .sidebar__link--active {
+  border-left: 3px solid #c4a962;
+  box-shadow: none;
+}
+
+.sidebar--collapsed:hover .sidebar__status {
+  justify-content: flex-start;
+}
+
+.sidebar--collapsed:hover .sidebar__group-label {
+  padding: 18px 14px 4px;
+  height: auto;
+  min-height: unset;
+  margin: 0;
+  border-top: none;
+  overflow: visible;
 }
 
 .app-main {
