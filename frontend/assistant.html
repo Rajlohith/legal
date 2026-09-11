@@ -43,6 +43,21 @@
       display: flex;
       flex-direction: column;
     }
+
+    /* Clear-chat button, sized to match the send button beside it */
+    .chat-clear-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+    }
+
+    .chat-clear-btn .lucide {
+      width: 18px;
+      height: 18px;
+    }
   </style>
 </head>
 
@@ -95,6 +110,9 @@
           </div>
           <form class="chat-input-row" id="chatForm">
             <textarea id="chatInput" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for new line)"></textarea>
+            <button type="button" class="btn btn-ghost chat-clear-btn" id="clearChatBtn" title="Clear chat and start a new conversation" aria-label="Clear chat">
+              <i data-lucide="trash-2"></i>
+            </button>
             <button type="submit" class="btn btn-primary chat-send-btn" id="chatSendBtn" aria-label="Send">
               <i data-lucide="send"></i>
             </button>
