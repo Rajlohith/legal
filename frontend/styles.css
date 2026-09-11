@@ -1800,6 +1800,7 @@ body {
 }
 
 /* Download options row */
+
 .download-options {
   display: flex;
   gap: 6px;
@@ -1811,12 +1812,15 @@ body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
+  text-decoration: none;
 }
 
 .btn-outline:hover:not(:disabled) {
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
-  background: #EDF0F7;
+  color: white;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Clear results button in card header */
