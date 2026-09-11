@@ -470,7 +470,7 @@ class SearchEngine:
                 page.locator("#generate").click()
 
                 results = page.locator("#dynamic-content-year")
-                results.wait_for(state="visible", timeout=10000)
+                results.wait_for(state="visible", timeout=0)
                 page.wait_for_timeout(2000)
 
                 if find_judgments_table(results) is not None:
