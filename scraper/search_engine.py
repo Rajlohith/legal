@@ -105,6 +105,7 @@ class SearchEngine:
 
         static_fields = {
             "case_type": case_type,
+            "_bench_value": bench_value,
             "case_no": case_no,
             "case_year": case_year,
             "petitioner_name": petitioner_name,
@@ -213,8 +214,31 @@ class SearchEngine:
                       from_date, to_date,
                       seen_cases, collected_cases, safe_alias, range_label,
                       results_holder):
+        # Navigate back to the search form before each job so the
+        # previous results don't block the form fields.
+        self.log("Reloading search form...")
+
+        # Force close any modal via JS before navigating away
+        try:
+            page.evaluate("document.getElementById('view-modal-year') && $('#view-modal-year').modal('hide')")
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+        page.goto(SEARCH_URL, wait_until="networkidle")
+        page.locator("#db_bench").select_option(static_fields.get("_bench_value", "B"))
+        page.wait_for_timeout(2000)
+        
         respondent = page.locator("#respondname")
         respondent.wait_for(state="visible")
+
+        # Dismiss any lingering modal before filling the form
+        try:
+            if page.locator("#view-modal-year").is_visible():
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(1000)
+        except Exception:
+            pass
 
         self._fill_search_form(page, alias, alias_field, static_fields, from_date, to_date)
 
@@ -362,6 +386,20 @@ class SearchEngine:
         for attempt in range(1, MAX_CAPTCHA_ATTEMPTS + 1):
             self._check_stop()
             self.log(f"CAPTCHA attempt {attempt} of {MAX_CAPTCHA_ATTEMPTS}")
+
+             # Dismiss any modal blocking the CAPTCHA area
+            try:
+                modal = page.locator("#view-modal-year")
+                if modal.is_visible():
+                    self.log("Dismissing open modal...")
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(1000)
+                    close_btn = modal.locator('[data-dismiss="modal"], .close, button.close').first
+                    if modal.is_visible() and close_btn.count() > 0:
+                        close_btn.click()
+                        page.wait_for_timeout(1000)
+            except Exception:
+                pass
 
             captcha_text = solve_captcha(page, tesseract_cmd=self.tesseract_cmd)
 

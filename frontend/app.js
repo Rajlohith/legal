@@ -249,8 +249,6 @@ const filterState = {
   caseYears: new Set(),
   hasJudgment: false,
   hasOrders: false,
-  caseNoMin: "",
-  caseNoMax: "",
   petitioner: "",
   respondent: "",
 };
@@ -301,15 +299,11 @@ function resetFilterState() {
   filterState.caseYears.clear();
   filterState.hasJudgment = false;
   filterState.hasOrders = false;
-  filterState.caseNoMin = "";
-  filterState.caseNoMax = "";
   filterState.petitioner = "";
   filterState.respondent = "";
   $("filterSearch").value = "";
   $("filterHasJudgment").checked = false;
   $("filterHasOrders").checked = false;
-  $("filterCaseNoMin").value = "";
-  $("filterCaseNoMax").value = "";
   $("filterPetitioner").value = "";
   $("filterRespondent").value = "";
   $("sortSelect").value = "year_desc";
@@ -384,14 +378,6 @@ $("filterHasOrders").addEventListener("change", (e) => {
   filterState.hasOrders = e.target.checked;
   renderFilteredResults();
 });
-$("filterCaseNoMin").addEventListener("input", (e) => {
-  filterState.caseNoMin = e.target.value.trim();
-  renderFilteredResults();
-});
-$("filterCaseNoMax").addEventListener("input", (e) => {
-  filterState.caseNoMax = e.target.value.trim();
-  renderFilteredResults();
-});
 $("filterPetitioner").addEventListener("input", (e) => {
   filterState.petitioner = e.target.value.trim().toLowerCase();
   renderFilteredResults();
@@ -437,10 +423,6 @@ function renderFilteredResults() {
     if (filterState.hasOrders && !(c.sections || {})["Daily Orders Information"]) {
       return false;
     }
-    // Case number range filter
-    const caseNoInt = parseInt(c.case_no, 10) || 0;
-    if (filterState.caseNoMin && caseNoInt < parseInt(filterState.caseNoMin, 10)) return false;
-    if (filterState.caseNoMax && caseNoInt > parseInt(filterState.caseNoMax, 10)) return false;
     // Petitioner / respondent text filters
     if (filterState.petitioner && !(c.petitioner || "").toLowerCase().includes(filterState.petitioner)) return false;
     if (filterState.respondent && !(c.respondent || "").toLowerCase().includes(filterState.respondent)) return false;
@@ -493,8 +475,6 @@ function renderActiveChips() {
   filterState.caseYears.forEach((v) => chips.push({ label: `Year: ${v}`, clear: () => filterState.caseYears.delete(v) }));
   if (filterState.hasJudgment) chips.push({ label: "Has Judgment", clear: () => { filterState.hasJudgment = false; $("filterHasJudgment").checked = false; } });
   if (filterState.hasOrders) chips.push({ label: "Has Daily Orders", clear: () => { filterState.hasOrders = false; $("filterHasOrders").checked = false; } });
-  if (filterState.caseNoMin) chips.push({ label: `Case No ≥ ${filterState.caseNoMin}`, clear: () => { filterState.caseNoMin = ""; $("filterCaseNoMin").value = ""; } });
-  if (filterState.caseNoMax) chips.push({ label: `Case No ≤ ${filterState.caseNoMax}`, clear: () => { filterState.caseNoMax = ""; $("filterCaseNoMax").value = ""; } });
   if (filterState.petitioner) chips.push({ label: `Petitioner: "${filterState.petitioner}"`, clear: () => { filterState.petitioner = ""; $("filterPetitioner").value = ""; } });
   if (filterState.respondent) chips.push({ label: `Respondent: "${filterState.respondent}"`, clear: () => { filterState.respondent = ""; $("filterRespondent").value = ""; } });
   if (filterState.search) chips.push({ label: `"${filterState.search}"`, clear: () => { filterState.search = ""; $("filterSearch").value = ""; } });
