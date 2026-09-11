@@ -87,7 +87,7 @@ class CaseNumberSearchEngine:
 
             try:
                 self.log("Opening Karnataka Judiciary website (Quick Search by Case No.)...")
-                page.goto(CASE_NUMBER_SEARCH_URL, wait_until="networkidle")
+                page.goto(CASE_NUMBER_SEARCH_URL, wait_until="domcontentloaded", timeout=60000)  # 60 seconds, stop waiting for network to idle
 
                 self.log(f"Selecting {bench_name}...")
                 page.locator("#db_bench").select_option(bench_value)

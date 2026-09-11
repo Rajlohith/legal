@@ -37,7 +37,7 @@ def fetch_judge_options(db_bench_value, headless=True, timeout_ms=20000):
         browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
         try:
-            page.goto(SEARCH_URL, wait_until="networkidle")
+            page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)  # 60 seconds, stop waiting for network to idle
             page.locator("#db_bench").select_option(db_bench_value)
 
             judge_select = page.locator("#cmbjudge")
