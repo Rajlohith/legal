@@ -267,16 +267,19 @@ async def ws_logs(websocket: WebSocket):
 # ----------------------------------------------------------------------
 
 
+_OUTPUT_MEDIA_TYPES = {
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".zip": "application/zip",
+}
+
+
 @app.get("/outputs/{filename}")
 async def download_output(filename: str):
     path = (OUTPUT_DIR / filename).resolve()
     if OUTPUT_DIR.resolve() not in path.parents or not path.exists():
         return {"error": "File not found."}
-    return FileResponse(
-        path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=filename,
-    )
+    media_type = _OUTPUT_MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
+    return FileResponse(path, media_type=media_type, filename=filename)
 
 
 if FRONTEND_DIR.exists():

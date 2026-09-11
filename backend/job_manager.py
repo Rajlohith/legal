@@ -10,6 +10,7 @@ launched multiple times concurrently on the server.
 
 import asyncio
 import threading
+import zipfile
 from pathlib import Path
 
 from config import BENCH_OPTIONS, DEFAULT_OUTPUT_FILENAME
@@ -22,6 +23,35 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 BENCH_VALUE_TO_NAME = {v: k for k, v in BENCH_OPTIONS.items()}
+PDF_DIR = OUTPUT_DIR / "pdfs"
+
+
+def _bundle_output(output_path_str, cases, log):
+    """
+    If any case in this run captured a Judgment PDF, zip the workbook
+    together with just those PDFs (under a pdfs/ folder, matching the
+    relative hyperlinks the Excel sheet already points at) and return
+    the zip's path. Otherwise leave the plain .xlsx as-is.
+    """
+    output_path = Path(output_path_str)
+    pdf_names = sorted({c["judgment_pdf"] for c in cases if c.get("judgment_pdf")})
+    if not pdf_names:
+        return output_path
+
+    zip_path = output_path.with_suffix(".zip")
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(output_path, arcname=output_path.name)
+            for name in pdf_names:
+                src = PDF_DIR / name
+                if src.exists():
+                    zf.write(src, arcname=f"pdfs/{name}")
+        output_path.unlink(missing_ok=True)
+        log(f"Bundled {len(pdf_names)} judgment PDF(s) with the workbook into {zip_path.name}.")
+        return zip_path
+    except Exception as e:
+        log(f"Could not bundle judgment PDFs (keeping the plain workbook): {e}")
+        return output_path
 
 
 def _serialize_cases(cases):
@@ -44,6 +74,7 @@ def _serialize_cases(cases):
                 "base_row": base_row,
                 "case_information": case.get("case_info_text", ""),
                 "sections": case.get("sections_data", {}),
+                "judgment_pdf": case.get("judgment_pdf"),
             }
         )
     return serialized
@@ -212,13 +243,16 @@ class JobManager:
             author_judge=criteria.get("author_judge") or None,
             coram=criteria.get("coram") or None,
             report_type=criteria.get("report_type") or None,
+            pdf_dir=PDF_DIR,
         )
+
+        final_path = _bundle_output(summary["output_path"], summary["cases"], log)
 
         self.last_result = summary
         self._broadcast(
             "done",
             {
-                "output_filename": Path(summary["output_path"]).name,
+                "output_filename": final_path.name,
                 "case_count": summary["case_count"],
                 "duplicates_skipped": summary["duplicates_skipped"],
                 "cancelled": summary["cancelled"],
@@ -267,13 +301,16 @@ class JobManager:
             criteria["case_no"],
             criteria["case_year"],
             output_path,
+            pdf_dir=PDF_DIR,
         )
+
+        final_path = _bundle_output(summary["output_path"], summary["cases"], log)
 
         self.last_result = summary
         self._broadcast(
             "done",
             {
-                "output_filename": Path(summary["output_path"]).name,
+                "output_filename": final_path.name,
                 "case_count": summary["case_count"],
                 "duplicates_skipped": summary["duplicates_skipped"],
                 "cancelled": summary["cancelled"],
