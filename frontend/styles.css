@@ -2182,8 +2182,7 @@ body {
    Site Footer — dark, elegant, sidebar-consistent
    ================================================================ */
 .site-footer {
-  /* background:; */
-  border-top: 2px solid var(--accent);
+  border-top: 2px solid #C9A227;
   margin-top: auto;
   font-family: var(--font-body);
   font-size: 13px;
