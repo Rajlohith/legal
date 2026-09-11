@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Iudicium</title>
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex,nocache,max-snippet:0,max-image-preview:none,max-video-preview:-1">
+  <title>iudicium.</title>
+  <link rel="icon" type="image/svg+xml" href="iudicium-logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
@@ -18,11 +20,12 @@
   <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__top">
-        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
-            Search</span></a>
-        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
-          <i data-lucide="panel-left-close"></i>
-        </button>
+        <div class="sidebar__brand">
+          <button class="sidebar__logo-btn" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+        <img class="sidebar__logo-svg" src="iudicium-mark.svg" alt="iudicium logo">
+          </button>
+          <a href="index.html" class="sidebar__brand-name label">iudicium.</a>
+        </div>
       </div>
       <nav class="sidebar__nav">
         <a href="index.html" class="sidebar__link sidebar__link--active" title="Home"><i data-lucide="home"></i><span class="label">Home</span></a>
@@ -44,7 +47,11 @@
     <div class="app-main">
       <header class="topbar">
         <div class="topbar__title">
-          <h1><i data-lucide="scale"></i> Iudicium</h1>
+          <h1><img class="topbar__logo-svg" src="iudicium-logo.svg" alt="iudicium logo"> iudicium.</h1>
+        </div>
+        <div class="topbar__status" id="connStatus">
+          <span class="dot" id="connDot"></span>
+          <span id="connLabel">Connecting…</span>
         </div>
       </header>
 
@@ -112,6 +119,10 @@
 
     <footer class="site-footer">
       <div class="site-footer__top">
+        <a href="index.html" class="site-footer__brand">
+          <img class="site-footer__brand-svg" src="iudicium-logo.svg" alt="iudicium logo">
+          iudicium.
+        </a>
         <div class="site-footer__links">
           <a href="https://judiciary.karnataka.gov.in/judgments.php" target="_blank" rel="noopener" class="site-footer__link">
             Official Judgements Portal
@@ -157,6 +168,7 @@
   </div>
 
   <script src="sidebar.js"></script>
+  <script src="conn-status.js"></script>
   <script>
     lucide.createIcons();
   </script>

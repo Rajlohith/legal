@@ -19,11 +19,21 @@
   const formEl = document.getElementById("chatForm");
   const inputEl = document.getElementById("chatInput");
   const sendBtn = document.getElementById("chatSendBtn");
+  const clearChatBtn = document.getElementById("clearChatBtn");
   if (!formEl) return;
 
   const RESULT_KEYS = { detailed: "detailedSearchResults", quick: "quickSearchResults" };
   const RESULT_PAGES = { detailed: "search.html", quick: "case-number.html" };
   const SESSION_KEY = "assistantSession";
+
+  // The greeting bubble the page ships with, before any messages are sent.
+  // Kept in sync with the markup in assistant.html so "Clear chat" can restore it.
+  const INITIAL_MESSAGE_HTML =
+    '<div class="chat-msg chat-msg--bot"><div class="chat-msg__bubble">' +
+    'Describe the case search you want in plain English, for example: ' +
+    '<em>"Writ petitions against State of Karnataka at the Principal Bench between January and March 2024"</em> ' +
+    'or <em>"WP 12345 of 2023, Dharwad bench"</em>.' +
+    "</div></div>";
 
   const history = [];
   let fields = {};
@@ -185,6 +195,18 @@
       sessionStorage.setItem("assistantPrefill", JSON.stringify(fields));
     } catch (e) { /* ignore */ }
     location.href = mode === "quick" ? "case-number.html" : "search.html";
+  }
+
+  // Full reset: wipes in-memory state, sessionStorage, and the rendered
+  // message list, then puts the original greeting back. Used by the
+  // top-level "Clear chat" button in the topbar.
+  function clearChat() {
+    fields = {};
+    history.length = 0;
+    paramCard = null;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+    messagesEl.innerHTML = INITIAL_MESSAGE_HTML;
+    scrollToBottom();
   }
 
   function startOver() {
@@ -434,6 +456,16 @@
     inputEl.style.height = "auto";
     sendMessage(text);
   });
+
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener("click", function () {
+      const msg = running
+        ? "A search is currently running. Clear the chat anyway? (The running search keeps going in the background — this only clears the conversation view.)"
+        : "Clear this chat and start a new conversation?";
+      if (!confirm(msg)) return;
+      clearChat();
+    });
+  }
 
   fetch("/api/search/status").then(function (r) { return r.json(); }).then(function (s) {
     if (s.is_running) addMessage("bot", "Note: a search is currently running from another page. Wait for it to finish before starting a new one.");

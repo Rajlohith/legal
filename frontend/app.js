@@ -758,7 +758,7 @@ function downloadPdf() {
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(31, 58, 95);
-  doc.text("Iudicium — Case Search Results", margin, y);
+  doc.text("iudicium. — Case Search Results", margin, y);
   y += 8;
 
   doc.setFontSize(9);
@@ -878,7 +878,7 @@ function downloadMarkdown() {
   const mdEscape = (v) => String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
 
   const lines = [
-    "# Iudicium — Case Search Results",
+    "# iudicium. — Case Search Results",
     "",
     `**Generated:** ${new Date().toLocaleString()}`,
     "",

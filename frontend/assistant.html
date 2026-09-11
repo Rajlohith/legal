@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Assistant — Iudicium</title>
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex,nocache,max-snippet:0,max-image-preview:none,max-video-preview:-1">
+  <title>AI Assistant — iudicium.</title>
+  <link rel="icon" type="image/svg+xml" href="iudicium-logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
@@ -19,7 +21,7 @@
       flex: 1;
       min-height: 0;
       padding: 24px 28px;
-      max-width: 1000px;
+      max-width: none;
       width: 100%;
       margin: 0 auto;
       box-sizing: border-box;
@@ -41,6 +43,21 @@
       display: flex;
       flex-direction: column;
     }
+
+    /* Clear-chat button, sized to match the send button beside it */
+    .chat-clear-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+    }
+
+    .chat-clear-btn .lucide {
+      width: 18px;
+      height: 18px;
+    }
   </style>
 </head>
 
@@ -49,11 +66,12 @@
   <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__top">
-        <a href="index.html" class="sidebar__brand"><i data-lucide="scale"></i><span class="label">Case
-            Search</span></a>
-        <button class="sidebar__toggle" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
-          <i data-lucide="panel-left-close"></i>
-        </button>
+        <div class="sidebar__brand">
+          <button class="sidebar__logo-btn" id="sidebarToggle" title="Collapse sidebar" aria-label="Toggle sidebar">
+        <img class="sidebar__logo-svg" src="iudicium-mark.svg" alt="iudicium logo">
+          </button>
+          <a href="index.html" class="sidebar__brand-name label">iudicium.</a>
+        </div>
       </div>
       <nav class="sidebar__nav">
         <a href="index.html" class="sidebar__link" title="Home"><i data-lucide="home"></i><span class="label">Home</span></a>
@@ -77,6 +95,10 @@
         <div class="topbar__title">
           <h1><i data-lucide="message-circle"></i> AI Assistant</h1>
         </div>
+        <div class="topbar__status" id="connStatus">
+          <span class="dot" id="connDot"></span>
+          <span id="connLabel">Connecting…</span>
+        </div>
       </header>
 
       <div class="assistant-wrap">
@@ -88,6 +110,9 @@
           </div>
           <form class="chat-input-row" id="chatForm">
             <textarea id="chatInput" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for new line)"></textarea>
+            <button type="button" class="btn btn-ghost chat-clear-btn" id="clearChatBtn" title="Clear chat and start a new conversation" aria-label="Clear chat">
+              <i data-lucide="trash-2"></i>
+            </button>
             <button type="submit" class="btn btn-primary chat-send-btn" id="chatSendBtn" aria-label="Send">
               <i data-lucide="send"></i>
             </button>
@@ -96,6 +121,10 @@
       </div>
     <footer class="site-footer">
       <div class="site-footer__top">
+        <a href="index.html" class="site-footer__brand">
+          <img class="site-footer__brand-svg" src="iudicium-logo.svg" alt="iudicium logo">
+          iudicium.
+        </a>
         <div class="site-footer__links">
           <a href="https://judiciary.karnataka.gov.in/judgments.php" target="_blank" rel="noopener" class="site-footer__link">
             Official Judgements Portal
@@ -140,6 +169,7 @@
   </div>
 
   <script src="sidebar.js"></script>
+  <script src="conn-status.js"></script>
   <script src="chat.js"></script>
   <script>
     lucide.createIcons();
