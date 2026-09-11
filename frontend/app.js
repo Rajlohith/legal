@@ -926,11 +926,32 @@ function restorePersistedResults() {
 }
 
 // ------------------------------------------------------------------
+// Job status check — restore running UI instantly on page (re)load
+// ------------------------------------------------------------------
+
+async function checkJobStatus() {
+  try {
+    const res = await fetch("/api/search/status");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.is_running) {
+      $("progressWrap").hidden = false;
+      $("progressLabel").textContent = "Fetching cases…";
+      $("progressFill").style.width = "";
+      setRunning(true);
+    }
+  } catch (e) {
+    // Endpoint unavailable — fail silently.
+  }
+}
+
+// ------------------------------------------------------------------
 // Init
 // ------------------------------------------------------------------
 
 lucide.createIcons();
 loadFormOptions().then(applyAssistantPrefill);
+checkJobStatus();
 connectWs();
 restorePersistedResults();
 loadPersistedLog();
