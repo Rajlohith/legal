@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from scraper_service import ScraperService, parse_date
 
 
-app = FastAPI(title="Karnataka Judiciary Search API", version="0.1.0")
+app = FastAPI(title="Iudicium", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],

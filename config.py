@@ -1,5 +1,5 @@
 """
-Central configuration for the Karnataka Judiciary case search tool.
+Central configuration for the Iudicium case search tool.
 
 Nothing in this file talks to the browser or the filesystem — it's just
 constants, so every other module can import from one place instead of

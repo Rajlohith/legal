@@ -735,7 +735,7 @@ function downloadPdf() {
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(31, 58, 95);
-  doc.text("Karnataka Judiciary — Case Search Results", margin, y);
+  doc.text("Iudicium — Case Search Results", margin, y);
   y += 8;
 
   doc.setFontSize(9);
@@ -816,7 +816,7 @@ function downloadPdf() {
 function downloadMarkdown() {
   if (!allCases.length) return;
   const lines = [
-    "# Karnataka Judiciary — Case Search Results",
+    "# Iudicium — Case Search Results",
     "",
     `**Generated:** ${new Date().toLocaleString()}`,
     "",

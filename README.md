@@ -1,4 +1,4 @@
-# Karnataka Judiciary Case Search
+# Iudicium
 
 A tool that searches the Karnataka Judiciary case-status website
 (`rep_judgment.php`) for judgments, opens each matching case's detail

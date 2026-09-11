@@ -110,7 +110,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-12 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-8">
-        <header><p className="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">Karnataka Judiciary</p><h1 className="mt-2 text-5xl font-semibold tracking-tight">Case search</h1><p className="mt-3 max-w-2xl text-slate-600">Search respondent and petitioner names independently, then review one deduplicated result set.</p></header>
+        <header><p className="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">Iudicium</p><h1 className="mt-2 text-5xl font-semibold tracking-tight">Case search</h1><p className="mt-3 max-w-2xl text-slate-600">Search respondent and petitioner names independently, then review one deduplicated result set.</p></header>
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-6 rounded-xl bg-slate-100 p-4"><label className="block text-sm font-semibold">Describe your search <span className="font-normal text-slate-500">optional</span><textarea rows={3} value={agentMessage} onChange={(event) => setAgentMessage(event.target.value)} placeholder="Find respondent BBMP cases decided between 01-01-2025 and 31-01-2025" className="mt-2 block w-full rounded-lg border border-slate-300 bg-white p-3 font-normal" /></label><button type="button" disabled={agentBusy || !agentMessage.trim()} onClick={applyAgentFields} className="mt-3 rounded-lg border border-teal-700 px-4 py-2 font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-50">{agentBusy ? "Parsing..." : "Fill fields from request"}</button></div>
           <form className="space-y-5" onSubmit={runSearch}>

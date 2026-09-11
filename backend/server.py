@@ -1,5 +1,5 @@
 """
-FastAPI backend for the Karnataka Judiciary Case Search web UI.
+FastAPI backend for the Iudicium web UI.
 
 Run with:
     python web.py
@@ -65,7 +65,7 @@ FRONTEND_DIR = PROJECT_ROOT / "frontend"
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD") or None
 SCRAPER_HEADLESS = os.environ.get("SCRAPER_HEADLESS", "true").strip().lower() != "false"
 
-app = FastAPI(title="Karnataka Judiciary Case Search")
+app = FastAPI(title="Iudicium")
 
 app.add_middleware(
     CORSMiddleware,
