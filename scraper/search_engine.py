@@ -244,35 +244,37 @@ class SearchEngine:
                       from_date, to_date,
                       seen_cases, collected_cases, safe_alias, range_label,
                       results_holder, pdf_dir=None, included_sections=None):
-        # Navigate back to the search form before each job so the
-        # previous results don't block the form fields.
-        self.log("Reloading search form...")
 
-        # Force close any modal via JS before navigating away
-        try:
-            page.evaluate("document.getElementById('view-modal-year') && $('#view-modal-year').modal('hide')")
-            page.wait_for_timeout(500)
-        except Exception:
-            pass
+        def reset_and_fill():
+            """Fresh page -> select bench -> fill the form. Used before the
+            first CAPTCHA attempt AND after every failed one, because a
+            failed search leaves the page in a broken state (hidden form,
+            error overlay) that can't reliably be patched in place."""
+            self.log("Reloading search form...")
+            try:
+                page.evaluate("document.getElementById('view-modal-year') && $('#view-modal-year').modal('hide')")
+                page.wait_for_timeout(500)
+            except Exception:
+                pass
 
-        page.goto(SEARCH_URL, wait_until="networkidle")
-        page.locator("#db_bench").select_option(static_fields.get("_bench_value", "B"))
-        page.wait_for_timeout(2000)
-        
-        respondent = page.locator("#respondname")
-        respondent.wait_for(state="visible")
+            page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=60000)
+            page.locator("#db_bench").select_option(static_fields.get("_bench_value", "B"))
+            page.wait_for_timeout(2000)
 
-        # Dismiss any lingering modal before filling the form
-        try:
-            if page.locator("#view-modal-year").is_visible():
-                page.keyboard.press("Escape")
-                page.wait_for_timeout(1000)
-        except Exception:
-            pass
+            respondent = page.locator("#respondname")
+            respondent.wait_for(state="visible")
 
-        self._fill_search_form(page, alias, alias_field, static_fields, from_date, to_date)
+            try:
+                if page.locator("#view-modal-year").is_visible():
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(1000)
+            except Exception:
+                pass
 
-        success, results = self._solve_and_search(page)
+            self._fill_search_form(page, alias, alias_field, static_fields, from_date, to_date)
+
+        reset_and_fill()
+        success, results = self._solve_and_search(page, reset_and_fill)
 
         job_label = alias or safe_alias
 
@@ -443,40 +445,30 @@ class SearchEngine:
     # CAPTCHA loop
     # ------------------------------------------------------------------
 
-    def _solve_and_search(self, page):
-        """Attempts the CAPTCHA + search click up to MAX_CAPTCHA_ATTEMPTS times."""
+    def _solve_and_search(self, page, reset_and_fill=None):
+        """Attempts the CAPTCHA + search click up to MAX_CAPTCHA_ATTEMPTS
+        times. After ANY failed attempt the page is reset completely via
+        reset_and_fill() (fresh load + bench + form) -- a failed search
+        leaves the site's form hidden behind an error overlay, so
+        in-place fixes (reload button, Escape) are not reliable."""
         results = None
 
         for attempt in range(1, MAX_CAPTCHA_ATTEMPTS + 1):
             self._check_stop()
             self.log(f"CAPTCHA attempt {attempt} of {MAX_CAPTCHA_ATTEMPTS}")
 
-             # Dismiss any modal blocking the CAPTCHA area
             try:
-                modal = page.locator("#view-modal-year")
-                if modal.is_visible():
-                    self.log("Dismissing open modal...")
-                    page.keyboard.press("Escape")
-                    page.wait_for_timeout(1000)
-                    close_btn = modal.locator('[data-dismiss="modal"], .close, button.close').first
-                    if modal.is_visible() and close_btn.count() > 0:
-                        close_btn.click()
-                        page.wait_for_timeout(1000)
-            except Exception:
-                pass
+                captcha_text = solve_captcha(page, tesseract_cmd=self.tesseract_cmd)
 
-            captcha_text = solve_captcha(page, tesseract_cmd=self.tesseract_cmd)
+                if len(captcha_text) != 6:
+                    self.log("OCR did not detect exactly 6 digits. Reloading CAPTCHA...")
+                    page.locator("#reload-button").click()
+                    page.wait_for_timeout(2000)
+                    continue
 
-            if len(captcha_text) != 6:
-                self.log("OCR did not detect exactly 6 digits. Reloading CAPTCHA...")
-                page.locator("#reload-button").click()
-                page.wait_for_timeout(2000)
-                continue
+                page.locator("#vercode").fill(captcha_text)
+                page.locator("#generate").click()
 
-            page.locator("#vercode").fill(captcha_text)
-            page.locator("#generate").click()
-
-            try:
                 results = page.locator("#dynamic-content-year")
                 results.wait_for(state="visible", timeout=10000)
                 page.wait_for_timeout(2000)
@@ -486,13 +478,14 @@ class SearchEngine:
                     return True, results
                 raise Exception("Judgments table not found")
 
+            except SearchCancelled:
+                raise
             except Exception as e:
                 self.log(f"Search attempt failed: {e}")
-                try:
-                    page.locator("#reload-button").click()
-                    page.wait_for_timeout(2000)
-                    page.locator("#vercode").fill("")
-                except Exception:
-                    self.log("Could not reload CAPTCHA automatically.")
+                if attempt < MAX_CAPTCHA_ATTEMPTS and reset_and_fill is not None:
+                    try:
+                        reset_and_fill()
+                    except Exception as reset_err:
+                        self.log(f"Could not reset the search page: {reset_err}")
 
         return False, results
